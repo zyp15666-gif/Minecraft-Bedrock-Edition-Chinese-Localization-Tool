@@ -1,0 +1,90 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+.pytest_cache/
+
+# Build
+build/
+dist/
+*.spec
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# 配置文件（包含敏感信息）
+config/config.yml
+.env
+
+# 配置备份
+config/backups/
+
+# 导出文件
+exports/
+
+# 测试覆盖率
+.coverage
+htmlcov/
+
+# 临时分析文件
+extracted_structure.json
+project_analysis_report.md
+
+# 临时图标文件
+icon_new.ico
+icon_new.png
+
+# AI 助手工作目录（Trae IDE 专用）
+.golutra/
+.workbuddy/
+
+# 重复的 workflows 目录（已经有 .github/workflows/）
+workflows/
+
+# 注意：以下文件应该提交到版本控制
+# requirements.in - 依赖需求文件
+# requirements.txt - 开发环境依赖
+# requirements.lock - 生产环境锁定文件

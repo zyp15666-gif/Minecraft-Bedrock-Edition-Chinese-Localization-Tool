@@ -1,0 +1,183 @@
+# Minecraft 基岩版汉化工具 - 示例配置文件
+# 重要：请勿将真实API密钥提交到公开仓库！
+# 复制此文件为 config.yml 并填入真实API密钥
+#
+# 安全说明：
+# - API 密钥会使用 Windows DPAPI 加密存储
+# - 加密后的密钥只能由当前 Windows 用户账户解密
+# - 配置文件中显示为 <SECURE:provider_name> 表示密钥已安全存储
+# - 配置版本：2.1（支持自动迁移）
+
+basic:
+  indent: 4
+  max_retries: 2
+  max_workers: 3
+  namespace: sgs_farm
+  use_multithreading: true
+  batch_size: 100  # 分批处理大小
+  max_threads_per_api: 5  # 每个API最大并发线程数
+  cache_max_size: 2000  # 翻译缓存最大容量
+  update_interval: 0.3  # 进度更新间隔（秒）
+  update_batch_size: 10  # 批量更新大小
+  ast_cache_maxsize: 128  # AST解析缓存大小
+  base_delay: 1.0  # 基础重试延迟（秒）
+  log_level: INFO  # 日志级别：DEBUG, INFO, WARNING, ERROR
+  local_model_use_prompt: true  # 本地模型是否使用提示词
+  use_multi_api_validation: false  # 是否启用多重API验证（消耗更多Token）
+  local_first_fallback: true  # 本地优先 + 质量降级（本地模型质量差时自动切换云端）
+
+# DeepSeek API配置
+deepseek:
+- api_key: YOUR_DEEPSEEK_API_KEY_HERE
+  api_url: https://api.deepseek.com/v1
+  enabled: false
+  model: deepseek-chat
+  name: DeepSeek_Chat_1
+  priority: 1
+
+# 豆包API配置  
+doubao: []
+
+# 本地Ollama/llama.cpp配置
+local_ollama:
+# - api_key: ''
+#   api_url: http://127.0.0.1:8080/v1/chat/completions
+#   enabled: true
+#   model: qwen
+#   name: Your Local Model
+#   priority: 1
+#   type: local_ollama
+
+# 腾讯混元 MT1.5 本地模型配置（llama.cpp 服务）
+- api_key: ''
+  api_url: http://127.0.0.1:8081/v1/chat/completions
+  enabled: true
+  model: HY-MT1.5-7B-Q4_K_M
+  name: 腾讯混元 MT1.5
+  priority: 1
+  type: local_ollama
+
+# 通义千问API配置
+qwen: []
+
+# OpenAI API配置
+openai: []
+
+# Azure OpenAI API配置
+azure_openai: []
+
+# 百度文心一言API配置
+baidu_ernie: []
+
+# 讯飞星火API配置
+iflytek_spark: []
+
+# Google Gemini API配置
+google_gemini: []
+
+# 速率限制配置（单位：秒）
+rate_limit:
+  default: 0.15
+  local_ollama: 0.0
+
+# UI配置
+ui:
+  dark_mode: true
+  language: zh_CN
+  window_size:
+  - 800
+  - 600
+  startup_animation_duration: 0.8
+  function_buttons:              # 功能按钮配置（隐藏/排序）
+    - id: extract_only
+      label: "[1] 仅提取汉化key"
+      icon: CONTENT_COPY
+      enabled: true
+      order: 1
+    - id: extract_and_translate
+      label: "[2] 提取+AI翻译"
+      icon: LANGUAGE
+      enabled: true
+      order: 2
+    - id: replace_display_names
+      label: "[3] 全BP替换display_name"
+      icon: SYNC
+      enabled: true
+      order: 3
+    - id: batch_delete_value
+      label: "[4] 批量删除value"
+      icon: DELETE
+      enabled: true
+      order: 4
+    - id: batch_restore_value
+      label: "[5] 批量还原value"
+      icon: RECYCLING
+      enabled: true
+      order: 5
+    - id: translate_lang_file
+      label: "[6] 翻译独立的.lang文件"
+      icon: DESCRIPTION
+      enabled: true
+      order: 6
+    - id: one_click_service
+      label: "[7] 一条龙服务"
+      icon: ROCKET_LAUNCH
+      enabled: true
+      order: 7
+    - id: adapt_entity_display_names
+      label: "[8] 高亮实体信息显示名称"
+      icon: STAR
+      enabled: true
+      order: 8
+    - id: translate_single_js_file
+      label: "[9] 翻译单个JS文件"
+      icon: CODE
+      enabled: true
+      order: 9
+    - id: script_hardcode_translation
+      label: "[10] 脚本硬编码汉化(慎用)"
+      icon: CONSTRUCTION
+      enabled: true
+      order: 10
+    - id: backup_management
+      label: "[11] 备份文件管理"
+      icon: BACKUP
+      enabled: true
+      order: 11
+    - id: translate_mcstructure
+      label: "[12] mcstructure汉化"
+      icon: MENU_BOOK
+      enabled: true
+      order: 12
+
+# 智谱AI API配置（示例，请替换为真实密钥）
+zhipu:
+- api_key: YOUR_API_KEY_HERE
+  api_url: https://open.bigmodel.cn/api/paas/v4/chat/completions
+  enabled: false
+  model: GLM-4-Flash
+  name: GLM_4_Flash_1
+
+# 高级配置
+advanced:
+  terminology:
+    use_automaton: true          # 启用Aho-Corasick自动机加速术语匹配
+  translation:
+    dynamic_batch_enabled: true  # 启用自适应分批
+    batch_min_chars: 200         # 单批次最小字符数
+    batch_max_chars: 600         # 单批次最大字符数
+    skip_stage2_complexity_threshold: 0.6  # 复杂度低于此值跳过阶段2
+  quality:
+    length_min_ratio: 0.15       # 翻译长度最小比例
+    length_max_ratio: 3.0        # 翻译长度最大比例
+    english_max_ratio: 0.3       # 翻译结果最大英文比例
+  complexity:
+    color_density_threshold: 0.3
+    term_density_threshold: 0.5
+    special_chars_threshold: 5
+  retry:
+    max_retries: 3               # API请求最大重试次数
+    base_delay: 1.0               # 基础重试延迟（秒）
+    max_delay: 10.0              # 最大重试延迟（秒）
+    backoff_factor: 2.0          # 指数退避因子
+  prompts_override: ''            # 自定义提示词YAML路径（留空使用内置）

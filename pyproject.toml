@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "minecraft-bedrock-localizer"
+version = "1.0.0"
+description = "Minecraft 基岩版汉化工具 - AI 辅助翻译桌面应用"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "MinecraftBedrockLocalizer Contributors"},
+]
+
+dependencies = [
+    "flet>=0.84.0,<0.86.0",
+    "pyyaml>=6.0.1",
+    "requests>=2.32.3",
+    "tqdm>=4.66.1",
+    "esprima>=4.0.1",
+    "pynbt>=2.0.0",
+    "mcstructure>=0.0.1b6",
+    "aiohttp>=3.9.0",
+    "cachetools>=5.3.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+all = [
+    "json5>=0.9.17",
+    "screeninfo>=0.8.1",
+    "pyahocorasick>=2.0.0",
+    "jieba>=0.42.1",
+    "psutil>=5.9.0",
+]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "ruff>=0.11",
+    "mypy>=1.15",
+    "pre-commit>=4.0",
+    "pip-tools>=7.0",
+    "bandit>=1.7",
+    "black>=24.0",
+    "flake8>=7.0",
+    "isort>=5.13",
+    "pylint>=3.0",
+    "pyinstaller>=6.0",
+]
+build = [
+    "pyinstaller>=6.0",
+    "pyyaml>=6.0.1",
+]
+
+[tool.setuptools.packages.find]
+include = ["api*", "config*", "core*", "ui*", "scripts*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning:tqdm*",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-width = 4
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+warn_unused_configs = true
+disallow_untyped_defs = false

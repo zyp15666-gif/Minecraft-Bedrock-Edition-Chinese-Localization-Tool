@@ -1,0 +1,26 @@
+# 依赖包列表
+# ================================================
+# 本文件与 pyproject.toml 保持同步
+# 安装命令：pip install -r requirements.txt
+# 完整安装（含可选依赖）：pip install -r requirements.txt --extra-index-url ""
+# ================================================
+
+# 核心依赖（必须安装，与 pyproject.toml [project.dependencies] 一致）
+flet>=0.84.0,<0.86.0
+pyyaml>=6.0.1
+requests>=2.32.3
+tqdm>=4.66.1
+esprima>=4.0.1
+pynbt>=2.0.0
+mcstructure>=0.0.1b6
+aiohttp>=3.9.0
+cachetools>=5.3.0
+pydantic>=2.0.0
+
+# 可选依赖（不安装则自动降级，安装可获得更好性能）
+# 与 pyproject.toml [project.optional-dependencies.all] 一致
+json5>=0.9.17
+screeninfo>=0.8.1
+pyahocorasick>=2.0.0
+jieba>=0.42.1
+psutil>=5.9.0
