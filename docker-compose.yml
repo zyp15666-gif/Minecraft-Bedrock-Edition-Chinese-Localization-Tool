@@ -1,0 +1,88 @@
+# Minecraft 基岩版汉化工具 - Docker Compose 配置
+# ================================================
+# 使用方法:
+# 1. 复制 .env.example 为 .env 并填入 API 密钥
+# 2. 运行: docker-compose up -d
+# 3. 查看日志: docker-compose logs -f
+# 4. 停止: docker-compose down
+# ================================================
+
+version: '3.8'
+
+services:
+  # 主应用（桌面模式）
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minecraft-translator
+    environment:
+      # API 密钥（通过 .env 文件或环境变量传入）
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
+      - DOUBAN_API_KEY=${DOUBAN_API_KEY:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      # 显示模式
+      - DISPLAY=${DISPLAY:-:0}
+      # 卷挂载（持久化配置和数据）
+    volumes:
+      # 挂载 X11 socket（用于 GUI）
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # 持久化配置
+      - ./config:/app/config:rw
+      # 持久化导出文件
+      - ./exports:/app/exports:rw
+      # 持久化日志
+      - ./logs:/app/logs:rw
+    network_mode: host
+    shm_size: 256mb
+    restart: unless-stopped
+
+  # API 检测服务（可选，用于测试 API 连接）
+  api-tester:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minecraft-translator-api-tester
+    command: |
+      python -c "
+        from api.api_manager import APIManager
+        from config.config_manager import ConfigManager
+        try:
+          cfg = ConfigManager().load_config()
+          mgr = APIManager(cfg)
+          print('检测可用 API...')
+          apis = mgr.detect_available_apis()
+          print(f'找到 {len(apis)} 个可用 API:')
+          for api in apis:
+            print(f'  - {api[\"name\"]} ({api[\"type\"]})')
+        except Exception as e:
+          print(f'检测失败: {e}')
+          exit(1)
+      "
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
+    network_mode: host
+    restart: "no"
+
+  # 开发环境（挂载源码热重载）
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minecraft-translator-dev
+    command: tail -f /dev/null
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
+    volumes:
+      - .:/app:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    network_mode: host
+    restart: "no"
+
+volumes:
+  config:
+  exports:
+  logs:

@@ -1,0 +1,18 @@
+# 开发依赖
+# 安装: pip install -r requirements-dev.txt
+# ================================================
+
+# 测试
+pytest>=9.0
+pytest-cov>=7.0
+
+# 代码质量
+ruff>=0.11
+mypy>=1.15
+pre-commit>=4.0
+
+# 重试与容错（可选，用于增强API重试机制）
+tenacity>=8.2.0
+
+# 文档
+# mkdocs-material  # 可选，用于构建文档站点

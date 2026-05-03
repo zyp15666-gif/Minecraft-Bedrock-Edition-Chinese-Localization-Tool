@@ -1,0 +1,198 @@
+Minecraft 基岩版汉化工具 — 项目结构树
+生成时间: 2026-05-03
+说明: 排除了 .venv、.git、__pycache__、.pytest_cache、config/backups 等目录
+
+============================================================
+
+wodeshijie/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                          # GitHub Actions CI/CD 配置
+│
+├── api/                                     # 🔌 API 抽象层
+│   ├── providers/                           #   API 提供者（Provider 模式）
+│   │   ├── __init__.py                     #     提供者注册表
+│   │   ├── base.py                         #     抽象基类
+│   │   ├── doubao.py                       #     豆包（字节跳动）
+│   │   ├── ollama.py                       #     本地 Ollama
+│   │   ├── openai_compatible.py            #     OpenAI 兼容（DeepSeek/通义/OpenAI）
+│   │   └── zhipu.py                        #     智谱 AI
+│   ├── terminology/                         #   术语子模块
+│   │   ├── __init__.py
+│   │   ├── exporter.py                     #     术语导出
+│   │   ├── loader.py                       #     术语加载
+│   │   └── matcher.py                      #     术语匹配（Aho-Corasick）
+│   ├── __init__.py
+│   ├── api_client.py                       #   API 客户端（同步 + 速率限制）
+│   ├── api_defaults.py                     #   API 默认配置（URL/模型/类型映射 唯一来源）
+│   ├── api_detector.py                     #   API 可用性检测
+│   ├── api_manager.py                      #   API 管理器（协调者角色）
+│   ├── api_monitor.py                      #   API 监控统计
+│   ├── api_orchestrator.py                 #   API 编排器（检测/负载均衡/熔断）
+│   ├── async_api_client.py                 #   异步 API 客户端（aiohttp）
+│   ├── batch_translation_coordinator.py    #   批量翻译协调器
+│   ├── circuit_breaker.py                  #   熔断器
+│   ├── interfaces.py                       #   ITranslationEngine 接口定义
+│   ├── load_balancer.py                    #   加权轮询负载均衡
+│   ├── multi_api_verifier.py               #   多 API 验证器（投票/质量评估）
+│   ├── retry_strategy.py                   #   重试策略
+│   ├── terminology_service.py              #   术语服务（Facade）
+│   ├── translation_cache.py               #   翻译缓存（内存 LRU + SQLite WAL + 完整性检查）
+│   ├── translation_prompts.py              #   翻译提示词（多模型适配）
+│   ├── translation_strategy.py             #   翻译策略（三阶段：术语→缓存→API）
+│   └── unified_retry.py                    #   统一重试框架
+│
+├── benchmarks/                              # 📊 性能基准测试
+│   ├── benchmark_results.json
+│   └── benchmark_translator.py
+│
+├── config/                                  # ⚙️ 配置层
+│   ├── config.example.yml                  #   配置示例文件
+│   ├── config.yml                          #   用户配置文件（.gitignore）
+│   ├── config_manager.py                   #   配置管理器（版本迁移/API Key安全存储）
+│   ├── config_schema.py                    #   配置 Schema 验证
+│   └── pydantic_validator.py               #   Pydantic 模型验证
+│
+├── core/                                    # 🧠 核心业务层
+│   ├── use_cases/                           #   用例模块（12 个独立用例）
+│   │   ├── __init__.py
+│   │   ├── adapt_entity_display_names.py   #     适配实体显示名称
+│   │   ├── backup_management.py            #     备份管理
+│   │   ├── base.py                         #     用例基类
+│   │   ├── batch_delete_value.py           #     批量删除值
+│   │   ├── batch_restore_value.py          #     批量恢复值
+│   │   ├── extract_and_translate.py        #     提取并翻译
+│   │   ├── extract_only.py                 #     仅提取
+│   │   ├── one_click_service.py            #     一键服务
+│   │   ├── replace_display_names.py        #     替换显示名称
+│   │   ├── script_hardcode_translation.py  #     脚本硬编码翻译（慎用）
+│   │   ├── translate_lang_file.py          #     翻译语言文件
+│   │   ├── translate_mcstructure.py        #     翻译 .mcstructure 文件
+│   │   └── translate_single_js_file.py     #     翻译单个 JS 文件
+│   ├── application_service.py              #   应用服务层（协调 UseCase）
+│   ├── backup_manager.py                   #   备份管理器
+│   ├── commands.py                         #   CLI 命令定义
+│   ├── constants.py                        #   常量定义
+│   ├── container.py                        #   依赖注入容器（统一初始化入口）
+│   ├── exceptions.py                       #   自定义异常层次
+│   ├── file_handler.py                     #   文件处理器（读/写/备份/路径校验）
+│   ├── i18n.py                             #   国际化
+│   ├── log_manager.py                      #   日志管理器（脱敏格式化）
+│   ├── metrics_collector.py                #   指标收集器
+│   ├── pipeline.py                         #   翻译管道
+│   ├── quality_checker.py                  #   翻译质量检查器
+│   ├── script_translation.py               #   脚本翻译
+│   ├── secure_storage.py                   #   安全存储（Windows DPAPI 加密）
+│   ├── translator.py                       #   翻译器（核心翻译逻辑）
+│   ├── update_checker.py                   #   应用更新检查器（GitHub Releases）
+│   ├── utils.py                            #   工具函数（含 is_lang_key_format 等）
+│   └── webview2_checker.py                 #   WebView2 运行时检测
+│
+├── docs/                                    # 📚 文档
+│   ├── API.md                              #   API 文档
+│   ├── CODE_SIGNING_GUIDE.md               #   代码签名与杀毒软件误报应对指南
+│   ├── DEPENDENCY_LOCK.md                  #   依赖锁定说明
+│   ├── DEPENDENCY_NOTES.md                 #   依赖注意事项
+│   ├── FLET_TABS_DOCUMENTATION.md          #   Flet Tabs 迁移文档
+│   ├── OPENSOURCE.md                       #   开源许可
+│   ├── SECURITY_WARNING.md                 #   安全警告
+│   ├── USER_GUIDE.md                       #   用户指南
+│   └── ui_architecture.md                  #   UI 架构文档
+│
+├── resources/                               # 📦 资源文件
+│   ├── api/
+│   │   └── minecraft_terms.json            #   Minecraft 术语词典（1551 条）
+│   ├── prompts/
+│   │   └── translation_prompts.yml         #   翻译提示词模板
+│   └── spelling_corrections.json           #   拼写纠正映射
+│
+├── scripts/                                 # 🔧 工具脚本
+│   ├── build_installer.py                  #   构建 NSIS 安装包（LocalAppData 安装）
+│   ├── check_flet_deprecated.py            #   检查 Flet 弃用 API（pre-commit）
+│   ├── check_translation_consistency.py    #   检查翻译一致性
+│   ├── extract_combined_terms.py           #   提取合并术语
+│   ├── merge_terms.py                      #   合并术语词典
+│   ├── migrate_terms_structure.py          #   迁移术语结构
+│   ├── run_flet_browser.py                 #   浏览器模式运行
+│   ├── run_flet_desktop.py                 #   桌面模式运行（主入口，含更新检查）
+│   ├── script_utils.py                     #   脚本工具函数
+│   ├── test_api_modular_performance.py     #   API 模块化性能测试
+│   ├── test_async_performance.py           #   异步性能测试
+│   ├── test_esprima_version.py             #   Esprima 版本测试
+│   ├── translate_en_us.py                  #   翻译 en_us 文件
+│   ├── update_lock_file.py                 #   更新依赖锁定文件
+│   └── verify_docs.py                      #   验证文档完整性
+│
+├── tests/                                   # 🧪 测试
+│   ├── ui/                                  #   UI 测试
+│   │   ├── __init__.py
+│   │   ├── conftest.py
+│   │   └── test_function_button_handler.py
+│   ├── __init__.py
+│   ├── conftest.py                         #   测试配置和 Fixtures
+│   ├── test_api_manager.py                 #   API 管理器测试（22 个）
+│   ├── test_api_modular_components.py      #   模块化组件测试
+│   ├── test_circuit_breaker.py             #   熔断器测试
+│   ├── test_config_manager.py              #   配置管理器测试
+│   ├── test_dialog_manager.py              #   对话框管理器测试
+│   ├── test_e2e_file_handler.py            #   端到端文件处理测试
+│   ├── test_file_handler.py                #   文件处理器测试（41 个）
+│   ├── test_function_button_handler.py     #   功能按钮测试
+│   ├── test_integration_api_client.py      #   API 客户端集成测试
+│   ├── test_integration_file_handler_translator.py  # 文件+翻译集成测试
+│   ├── test_integration_pipeline.py        #   管道集成测试
+│   ├── test_integration_translation.py     #   翻译集成测试
+│   ├── test_metrics_collector.py           #   指标收集器测试
+│   ├── test_providers.py                   #   Provider 测试
+│   ├── test_quality_checker.py             #   质量检查器测试
+│   ├── test_translation_cache.py           #   翻译缓存测试
+│   ├── test_translator.py                  #   翻译器测试
+│   ├── test_ui_background_task.py          #   后台任务服务测试
+│   ├── test_ui_function_handlers.py        #   UI 功能处理器测试
+│   ├── test_ui_utils.py                    #   UI 工具测试
+│   ├── test_use_cases.py                   #   用例测试
+│   └── test_utils.py                       #   工具函数测试
+│
+├── ui/                                      # 🖥️ UI 层（Flet）
+│   ├── components/                          #   UI 组件
+│   │   ├── __init__.py
+│   │   ├── api_manager.py                  #     API 管理组件
+│   │   ├── config_io.py                    #     配置导入导出组件
+│   │   ├── folder_selector.py              #     文件夹选择器组件
+│   │   ├── performance_monitor.py          #     性能监控组件
+│   │   ├── progress_display.py             #     进度显示组件
+│   │   └── status_bar.py                   #     状态栏组件
+│   ├── tabs/                                #   标签页
+│   │   ├── __init__.py
+│   │   ├── config_tab.py                   #     配置标签页
+│   │   ├── context.py                      #     上下文管理器
+│   │   ├── function_buttons.py             #     功能按钮标签页
+│   │   ├── log_tab.py                      #     日志标签页
+│   │   ├── progress.py                     #     进度标签页
+│   │   └── status_bar.py                   #     状态栏标签页
+│   ├── window/                              #   窗口管理
+│   │   ├── __init__.py
+│   │   └── window_manager.py               #     窗口管理器
+│   ├── __init__.py
+│   ├── accessibility.py                    #   可访问性支持（屏幕阅读器/高对比度）
+│   ├── background_task_service.py          #   后台任务服务
+│   ├── backup_manager.py                   #   备份管理器 UI
+│   ├── button_group_layout.py              #   按钮组布局
+│   ├── dialog_manager.py                   #   对话框管理器
+│   ├── dialogs.py                          #   对话框函数（导入导出/添加API）
+│   ├── function_button_handler.py          #   功能按钮处理器
+│   ├── function_handlers.py                #   功能处理器
+│   ├── main_window.py                      #   主窗口（MinecraftTranslatorApp）
+│   ├── theme_manager.py                    #   主题管理器（含高对比度支持）
+│   ├── ui_coordinator.py                   #   UI 协调器
+│   └── utils.py                            #   UI 工具函数
+│
+├── .pre-commit-config.yaml                 #   Pre-commit 钩子配置（11 个）
+├── Dockerfile                              #   Docker 镜像定义
+├── LICENSE                                 #   MIT 许可证
+├── MinecraftBedrockLocalizer.spec          #   PyInstaller 打包配置
+├── README.md                               #   项目说明文档
+├── pyproject.toml                          #   项目元数据 + 依赖（权威来源）
+├── requirements.txt                        #   用户安装入口（核心 + 可选依赖）
+├── requirements.in                         #   pip-compile 输入
+└── requirements.lock                       #   精确版本锁定

@@ -1,0 +1,219 @@
+[MASTER]
+# 分析的文件扩展名
+extension-pkg-allow-list=
+# 忽略的文件或目录
+ignore=CVS,.git,.venv,venv,__pycache__,*.pyc
+# 并行处理的进程数（0表示禁用）
+jobs=0
+# 加载插件的列表
+load-plugins=
+# 启用所有检查
+enable=all
+# 禁用所有检查
+disable=
+# 错误时返回非零退出码
+fail-on-error=false
+# 错误时返回非零退出码
+fail-on-warning=false
+# 不显示帮助消息
+help-msg=
+# 错误时返回非零退出码
+reports=yes
+# 评估分数
+evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)
+# 分数阈值
+fail-under=5.0
+
+[MESSAGES CONTROL]
+# 禁用以下检查
+disable=
+    # 格式相关（由flake8处理）
+    bad-continuation,
+    bad-whitespace,
+    trailing-whitespace,
+    trailing-newlines,
+    missing-final-newline,
+    mixed-line-endings,
+    # 命名约定（项目已有命名习惯）
+    invalid-name,
+    # 导入检查（项目结构特殊）
+    wrong-import-order,
+    wrong-import-position,
+    # 其他
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    too-many-instance-attributes,
+    too-many-public-methods,
+    too-many-return-statements,
+    too-many-boolean-expressions,
+    # 文档字符串（非必需）
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    # 类型提示（逐步引入）
+    missing-type-doc,
+    missing-param-doc,
+    missing-return-type-doc,
+    missing-yield-type-doc,
+    # 其他
+    redefined-outer-name,
+    global-statement,
+    # 特定于GUI的警告
+    protected-access,
+    # 未使用的变量（某些情况下需要保留）
+    unused-variable,
+    unused-argument,
+    # 未使用的导入（某些情况下需要保留）
+    unused-import,
+    # 裸异常（某些情况下需要）
+    broad-except,
+    # 循环导入（项目结构可能导致）
+    cyclic-import,
+    # 重复代码（允许一定重复）
+    duplicate-code
+
+[REPORTS]
+# 输出格式
+output-format=text
+# 显示消息ID
+include-ids=no
+# 显示分数
+score=yes
+# 显示报告
+reports=yes
+
+[FORMAT]
+# 最大行长度
+max-line-length=120
+# 单行最大语句数
+max-module-lines=1000
+# 忽略的行长检查正则表达式
+ignore-long-lines=^\s*(# )?<?https?://\S+>?$
+# 缩进大小
+indent-after-paren=4
+# 期望的行结束符
+expected-line-ending-format=LF
+
+[BASIC]
+# 好的变量名正则表达式
+good-names=i,j,k,ex,app,api,fn,fd,msg,ui,bp,rp,lang,cfg,env,log,idx,tmp,temp
+# 好的函数名正则表达式
+function-rgx=[a-z_][a-z0-9_]{2,30}$
+# 变量名正则表达式
+variable-rgx=[a-z_][a-z0-9_]{2,30}$
+# 类名正则表达式
+class-rgx=[A-Z_][a-zA-Z0-9]+$
+# 类属性名正则表达式
+attr-rgx=[a-z_][a-z0-9_]{2,30}$
+# 参数名正则表达式
+argument-rgx=[a-z_][a-z0-9_]{2,30}$
+# 方法名正则表达式
+method-rgx=[a-z_][a-z0-9_]{2,30}$
+# 模块名正则表达式
+module-rgx=[a-z_][a-z0-9_]+$
+# 常量名正则表达式
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+# 行内变量名正则表达式
+inlinevar-rgx=[A-Za-z_][A-Za-z0-9_]*$
+
+[ELIF]
+# 最大elif分支数
+max-elifs=10
+
+[SIMILARITIES]
+# 最小相似行数
+min-similarity-lines=10
+# 忽略的重复代码模式
+ignore-comments=yes
+ignore-docstrings=yes
+ignore-imports=yes
+
+[TYPECHECK]
+# 类型检查配置
+# 忽略缺少的类型提示
+ignore-missing-members=yes
+# 忽略混合模块
+ignore-mixin-members=yes
+# 忽略名称模式
+ignored-classes=optparse.Values,threading.local,_thread._local,argparse.Namespace
+# 生成成员配置
+generated-members=requests.models.Response
+
+[LOGGING]
+# 日志配置
+logging-modules=logging
+
+[VARIABLES]
+# 变量检查配置
+# 额外的内置函数
+additional-builtins=
+# 调用时忽略的类
+ignored-argument-names=_.*
+
+[DESIGN]
+# 设计相关配置
+# 最大函数参数数
+max-args=10
+# 最大函数局部变量数
+max-locals=20
+# 最大函数返回语句数
+max-returns=6
+# 最大分支数
+max-branches=15
+# 最大语句数
+max-statements=50
+# 最大公有方法数
+max-public-methods=30
+# 最大属性数
+max-attributes=20
+# 最大布尔表达式数
+max-boolean-expressions=10
+
+[IMPORTS]
+# 导入配置
+# 导入顺序风格
+import-order-style=pylint
+# 已知的第三方包
+known-third-party=flet, PyQt5, requests, tqdm, pyinstaller, pytest, flake8, pylint, autopep8
+# 已知的标准库
+known-standard-library=os, sys, json, re, time, threading, math, pathlib, shutil, datetime, typing, collections, itertools, functools, warnings, subprocess, argparse, inspect, hashlib, base64, uuid, random, string, fractions, decimal, fractions, statistics, fractions, fractions
+# 已知的第一方包
+known-first-party=api, core, config, ui, scripts, tests
+# 是否分析导入图
+analyse-fallback-blocks=no
+
+[CLASSES]
+# 类配置
+# 有效的类名样式
+valid-class-name=.*
+# 有效的属性名样式
+valid-attribute-name=.*
+# 有效的元类名样式
+valid-metaclass-name=.*
+
+[EXCEPTIONS]
+# 异常配置
+# 忽略的异常
+overgeneral-exceptions=Exception,BaseException
+
+[MISCELLANEOUS]
+# 杂项配置
+# 忽略的文件
+ignore-patterns=^test_.*\.py$,^.*_test\.py$,^.*_backup\.py$
+# 忽略的目录
+ignore-paths=^.*/\.venv/.*$,^.*/venv/.*$,^.*/__pycache__/.*$,^.*/\.git/.*$,^.*/\.pytest_cache/.*$
+
+[STRING]
+# 字符串配置
+# 检查字符串格式化
+check-str-concat-over-line-jumps=yes
+
+[SPELLING]
+# 拼写检查
+spelling-dict=en_US
+spelling-ignore-words=
+spelling-private-dict-file=
+spelling-store-unknown-words=no

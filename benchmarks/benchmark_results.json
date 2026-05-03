@@ -1,0 +1,62 @@
+{
+  "file_extraction": {
+    "1": {
+      "files": 1,
+      "entries": 1,
+      "avg_time_s": 0.0012,
+      "entries_per_sec": 863.76
+    },
+    "5": {
+      "files": 5,
+      "entries": 5,
+      "avg_time_s": 0.0018,
+      "entries_per_sec": 2838.33
+    },
+    "10": {
+      "files": 10,
+      "entries": 10,
+      "avg_time_s": 0.0028,
+      "entries_per_sec": 3530.82
+    },
+    "20": {
+      "files": 20,
+      "entries": 20,
+      "avg_time_s": 0.0041,
+      "entries_per_sec": 4912.8
+    }
+  },
+  "lang_generation": {
+    "10": {
+      "entry_count": 10,
+      "avg_time_s": 0.0012,
+      "entries_per_sec": 8123.48
+    },
+    "100": {
+      "entry_count": 100,
+      "avg_time_s": 0.0015,
+      "entries_per_sec": 68815.23
+    },
+    "500": {
+      "entry_count": 500,
+      "avg_time_s": 0.0022,
+      "entries_per_sec": 226107.93
+    }
+  },
+  "color_operations": {
+    "split_by_color_codes": {
+      "count": 1000,
+      "total_time_s": 0.0024,
+      "ops_per_sec": 418585.18
+    },
+    "has_color_codes": {
+      "count": 1000,
+      "total_time_s": 0.0004,
+      "ops_per_sec": 2818489.33
+    },
+    "normalize_game_text": {
+      "count": 1000,
+      "total_time_s": 0.003,
+      "ops_per_sec": 335525.43
+    }
+  }
+}
