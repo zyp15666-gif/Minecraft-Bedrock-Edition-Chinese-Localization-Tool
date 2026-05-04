@@ -278,7 +278,8 @@ class MinecraftTranslatorApp:
         
         def wrapper():
             try:
-                return task_func(*args, **kwargs)
+                filtered_kwargs = {k: v for k, v in kwargs.items() if k not in ['on_result', 'on_error', 'on_progress', 'on_log', 'on_complete', 'disabled_controls']}
+                return task_func(*args, **filtered_kwargs)
             finally:
                 self.task_service.schedule_on_main_thread(self.enable_all_buttons)
         
