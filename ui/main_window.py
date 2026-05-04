@@ -276,14 +276,13 @@ class MinecraftTranslatorApp:
         """
         self.disable_all_buttons()
         
-        def wrapper():
-            try:
-                filtered_kwargs = {k: v for k, v in kwargs.items() if k not in ['on_result', 'on_error', 'on_progress', 'on_log', 'on_complete', 'disabled_controls']}
-                return task_func(*args, **filtered_kwargs)
-            finally:
-                self.task_service.schedule_on_main_thread(self.enable_all_buttons)
-        
-        return self.task_service.run(wrapper)
+        return self.task_service.run_with_ui_callbacks(
+            task_func,
+            *args,
+            on_result=kwargs.get('on_result'),
+            on_error=kwargs.get('on_error'),
+            on_complete=self.enable_all_buttons,
+        )
 
     def build_ui(self):
         s = self.ui_scale
