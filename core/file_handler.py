@@ -248,8 +248,22 @@ class FileHandler:
         dn = components.get("minecraft:display_name", "")
         original = ""
         skip_reason = ""
+        
         if isinstance(dn, dict) and "value" in dn:
-            original = dn["value"]
+            raw_value = dn["value"]
+            # 检查 value 内容是否为语言键引用
+            if isinstance(raw_value, str) and raw_value.strip():
+                stripped = raw_value.strip()
+                if stripped.startswith('%'):
+                    original = ""
+                    skip_reason = f"value 内是语言键引用 (以%开头)"
+                elif is_lang_key_format(stripped):
+                    original = ""
+                    skip_reason = f"value 内是语言键格式"
+                else:
+                    original = raw_value
+            else:
+                original = raw_value
         elif isinstance(dn, str) and dn.strip():
             stripped = dn.strip()
             # 过滤1：以 % 开头的语言键引用
