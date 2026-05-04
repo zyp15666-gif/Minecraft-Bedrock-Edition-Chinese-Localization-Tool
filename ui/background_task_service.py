@@ -63,7 +63,8 @@ class BackgroundTaskService:
         def wrapper():
             try:
                 logger.debug(f"任务 {task_id} 开始执行")
-                result = fn(*args, **kwargs)
+                filtered_kwargs = {k: v for k, v in kwargs.items() if k not in ['on_result', 'on_error', 'on_progress', 'on_log', 'on_complete', 'disabled_controls']}
+                result = fn(*args, **filtered_kwargs)
                 result_holder[0] = ('result', result)
                 if timeout_flag.is_set():
                     return None
