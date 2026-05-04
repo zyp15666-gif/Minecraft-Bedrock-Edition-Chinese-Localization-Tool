@@ -4,7 +4,7 @@
 文件处理模块
 支持并行读取和解析JSON文件，提高处理速度
 """
-
+import re
 import os
 import json
 import shutil
@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Callable, Tuple
 
 from core.log_manager import get_logger
-from core.utils import is_protected_system_path
+from core.utils import is_protected_system_path, is_lang_key_format
 
 logger = get_logger(__name__)
 
@@ -239,41 +239,67 @@ class FileHandler:
                 json.dump(langs, f, indent=2)
             logger.info(f"📝 已更新 {lang_json_path}，添加 zh_CN")
 
-    def _extract_entry_from_json(self, data: Dict[str, Any], ident_key: str, prefix: str) -> Optional[Tuple[str, str]]:
-        """从 JSON 数据中提取单个条目，返回 (key, original) 或 None"""
-        desc = data.get(ident_key, {}).get("description", {})
-        ident = desc.get("identifier", "")
-        if not ident or ":" not in ident:
+    def _extract_entry_from_json(self, data: dict, ident_key: str, prefix: str) -> Optional[Tuple[str, str]]:
+        """从 JSON 数据中提取标准 minecraft:display_name，跳过语言键引用和纯格式代码"""
+        ident = data.get(ident_key, {}).get("description", {}).get("identifier", "")
+        if not ident:
             return None
-        entry_id = ident.split(":")[-1]
-        key = f"{prefix}.{self.namespace}:{entry_id}.name"
-        comp = data.get(ident_key, {}).get("components", {})
-        dn = comp.get("minecraft:display_name")
+        components = data.get(ident_key, {}).get("components", {})
+        dn = components.get("minecraft:display_name", "")
         original = ""
+        skip_reason = ""
         if isinstance(dn, dict) and "value" in dn:
             original = dn["value"]
-        elif isinstance(dn, str) and not (dn.startswith("tile.") or dn.startswith("item.")):
-            original = dn
-        if original:
-            return (key, original)
+        elif isinstance(dn, str) and dn.strip():
+            stripped = dn.strip()
+            # 过滤1：以 % 开头的语言键引用
+            if stripped.startswith('%'):
+                original = ""
+                skip_reason = f"语言键引用 (以%开头)"
+            # 过滤2：纯语言键格式
+            elif is_lang_key_format(stripped):
+                original = ""
+                skip_reason = f"语言键格式"
+            # 过滤3：仅由单个完整 § 格式代码组成
+            elif re.fullmatch(r'[§\u00A7][0-9a-fk-or]', stripped):
+                original = ""
+                skip_reason = f"纯格式代码"
+            # 过滤4：移除所有有效 § 代码后不剩下任何普通字母
+            elif not any(c.isalpha() and c.lower() >= 'a' for c in re.sub(r'[§\u00A7][0-9a-fk-or]', '', stripped).replace('%', '')):
+                original = ""
+                skip_reason = f"移除格式代码后无有效文本"
+            else:
+                original = dn
+
+        if original and ident:
+            print(f"[DEBUG 第1层] ✓ 提取: {prefix}.{ident}.name")
+            return (f"{prefix}.{ident}.name", original)
+        elif ident:
+            print(f"[DEBUG 第1层] ✗ 跳过: {ident} ({skip_reason})")
         return None
 
     def extract_entries(self, bp_folder: str) -> Dict[str, str]:
-        """从BP文件夹提取翻译条目（并行解析JSON）"""
+        """三层提取：标准组件 + 战利品表书籍 + 自适应 § 扫描"""
         lang_entries = {}
-        logger.info(f"\n📖 正在扫描BP文件夹: {bp_folder}")
-
         bp_path = Path(bp_folder)
         json_files = list(bp_path.rglob("*.json"))
         if not json_files:
+            print("[DEBUG] 未找到任何 JSON 文件")
             return lang_entries
+
+        print(f"[DEBUG] 开始三层提取，共发现 {len(json_files)} 个 JSON 文件")
+
+        # 用于第3层去重的路径集合
+        extracted_paths = set()
 
         results = self.read_json_files_parallel(json_files)
 
+        # 第1层 + 第2层
         for filepath, data in results:
             if data is None:
                 continue
             try:
+                # ----- 第1层：标准 display_name 提取 -----
                 for ident_key, prefix in [("minecraft:block", "tile"), ("minecraft:item", "item")]:
                     if ident_key in data:
                         result = self._extract_entry_from_json(data, ident_key, prefix)
@@ -281,10 +307,104 @@ class FileHandler:
                             key, original = result
                             if key not in lang_entries:
                                 lang_entries[key] = original
-            except Exception as e:
-                logger.error(f"❌ {filepath.name} → 提取失败：{str(e)}")
+                                extracted_paths.add(
+                                    (str(filepath), (ident_key, "components", "minecraft:display_name"))
+                                )
 
+                # ----- 第2层：战利品表书籍内容提取 -----
+                book_entries = self._extract_book_contents(data, str(filepath))
+                if book_entries:
+                    print(f"[DEBUG 第2层] ✓ 提取书籍 {Path(filepath).stem}: {len(book_entries)} 条")
+                for key, original in book_entries.items():
+                    if key not in lang_entries:
+                        lang_entries[key] = original
+
+                # 记录书籍页面路径
+                if "pools" in data:
+                    for pi, pool in enumerate(data["pools"]):
+                        for ei, entry in enumerate(pool.get("entries", [])):
+                            for fi, func in enumerate(entry.get("functions", [])):
+                                if func.get("function") == "set_book_contents":
+                                    for i in range(len(func.get("pages", []))):
+                                        extracted_paths.add(
+                                            (str(filepath),
+                                            ("pools", pi, "entries", ei, "functions", fi, "pages", i))
+                                        )
+            except Exception as e:
+                logger.error(f"提取失败 {filepath.name}: {e}")
+                print(f"[DEBUG] 提取失败 {filepath.name}: {e}")
+
+        # ----- 第3层：自适应 § 扫描 -----
+        for filepath, data in results:
+            if data is None:
+                continue
+            try:
+                color_entries = self._extract_color_code_strings(
+                    data, str(filepath), bp_folder, extracted_paths
+                )
+                if color_entries:
+                    print(f"[DEBUG 第3层] ✓ 自适应扫描 {Path(filepath).name}: 发现 {len(color_entries)} 个新条目")
+                for key, original in color_entries.items():
+                    if key not in lang_entries:
+                        lang_entries[key] = original
+            except Exception as e:
+                logger.error(f"自适应扫描失败 {filepath.name}: {e}")
+                print(f"[DEBUG] 自适应扫描失败 {filepath.name}: {e}")
+        print(f"[DEBUG] 三层提取完成，共提取 {len(lang_entries)} 个条目")
         return lang_entries
+    def _extract_book_contents(self, data: dict, filepath: str) -> Dict[str, str]:
+        """从战利品表中提取 set_book_contents 的 title、author、pages"""
+        entries = {}
+        if "pools" not in data:
+            return entries
+
+        file_stem = Path(filepath).stem
+
+        for pool in data.get("pools", []):
+            for entry in pool.get("entries", []):
+                for func in entry.get("functions", []):
+                    if func.get("function") != "set_book_contents":
+                        continue
+                    # 标题
+                    if "title" in func:
+                        key = f"book.{file_stem}.title"
+                        entries[key] = func["title"]
+                    # 作者
+                    if "author" in func:
+                        key = f"book.{file_stem}.author"
+                        entries[key] = func["author"]
+                    # 每一页
+                    for i, page_text in enumerate(func.get("pages", [])):
+                        key = f"book.{file_stem}.page.{i}"
+                        entries[key] = page_text
+        return entries
+
+    def _is_lang_reference(self, text: str) -> bool:
+        """判断文本是否为 % 开头的语言键引用（如 %tile.ntk.xxx）"""
+        return bool(re.match(r'^%\w[\w.]*', text.strip()))
+
+    def _extract_color_code_strings(self, data, filepath: str, bp_folder: str,
+                                    extracted_paths: set) -> Dict[str, str]:
+        """递归扫描所有含 § 的字符串，跳过语言键引用和已提取路径"""
+        entries = {}
+        rel_path = os.path.relpath(filepath, bp_folder).replace('\\', '/').replace('/', '-')
+
+        def scan(obj, path_parts):
+            if isinstance(obj, str):
+                if '§' in obj and not self._is_lang_reference(obj):
+                    key = f"auto.{rel_path}." + '.'.join(str(p) for p in path_parts)
+                    path_tuple = (rel_path, tuple(path_parts))
+                    if path_tuple not in extracted_paths and key not in entries:
+                        entries[key] = obj
+            elif isinstance(obj, dict):
+                for k, v in obj.items():
+                    scan(v, path_parts + [k])
+            elif isinstance(obj, list):
+                for i, v in enumerate(obj):
+                    scan(v, path_parts + [str(i)])
+
+        scan(data, [])
+        return entries
 
     def parse_lang_file(self, filepath: str) -> Dict[str, str]:
         """解析lang文件"""
