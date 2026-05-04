@@ -214,36 +214,31 @@ class BackgroundTaskService:
             try:
                 logger.debug(f"任务 {task_id} 开始执行")
                 
-                # 创建包装后的回调函数
                 wrapped_progress = None
                 wrapped_log = None
                 
                 if on_progress:
                     def wrapped_progress(*progress_args):
                         self._run_on_main_thread(on_progress, *progress_args)
-                
                 if on_log:
                     def wrapped_log(msg):
                         self._run_on_main_thread(on_log, msg)
                 
-                # 传递包装后的回调给任务函数
+                filtered_kwargs = {k: v for k, v in kwargs.items() if k not in ['on_result', 'on_error', 'on_progress', 'on_log', 'on_complete']}
+                
                 result = fn(*args, 
                             progress_callback=wrapped_progress,
                             log_callback=wrapped_log,
-                            **kwargs)
+                            **filtered_kwargs)
                 
                 if on_result:
                     self._run_on_main_thread(on_result, result)
-                    
                 logger.debug(f"任务 {task_id} 执行完成")
                 return result
-                
             except Exception as e:
                 logger.error(f"任务 {task_id} 执行失败: {e}", exc_info=True)
-                
                 if on_error:
                     self._run_on_main_thread(on_error, e)
-                
                 raise
             finally:
                 if on_complete:
