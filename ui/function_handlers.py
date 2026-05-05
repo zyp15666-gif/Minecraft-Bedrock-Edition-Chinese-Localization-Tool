@@ -73,8 +73,10 @@ class FunctionHandlers:
                 'translate_mcstructure': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
             }
             
-            params = method_params.get(method_name, {'bp_path': app.bp_path, 'rp_path': app.rp_path})
-            params.update(extra_kwargs)
+            params = method_params.get(method_name, {'bp_path': app.bp_path, 'rp_path': app.rp_path}).copy()
+            for k, v in extra_kwargs.items():
+                if k not in ['bp_path', 'rp_path', 'folder_path']:
+                    params[k] = v
             params['progress_callback'] = progress_callback
             params['log_callback'] = log_callback
 
