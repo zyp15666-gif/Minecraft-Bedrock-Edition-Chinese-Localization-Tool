@@ -232,19 +232,37 @@ class JSASTExtractor:
         """使用可用解析器解析 JavaScript AST 并提取字符串"""
         errors = []
         
-        if HAS_PYJSPARSER:
-            try:
-                return cls._run_pyjsparser_extraction(js_code)
-            except Exception as e:
-                errors.append(f"pyjsparser: {e}")
+        # 预处理：将 ES2020 语法转换为 ES6 兼容语法
+        preprocessed_code = cls._preprocess_es2020(js_code)
         
         if HAS_ESPRIMA:
             try:
-                return cls._run_esprima_extraction(js_code)
+                return cls._run_esprima_extraction(preprocessed_code)
             except Exception as e:
                 errors.append(f"esprima: {e}")
         
+        if HAS_PYJSPARSER:
+            try:
+                return cls._run_pyjsparser_extraction(preprocessed_code)
+            except Exception as e:
+                errors.append(f"pyjsparser: {e}")
+        
         raise RuntimeError(f"所有解析器都失败了: {'; '.join(errors)}")
+    
+    @classmethod
+    def _preprocess_es2020(cls, js_code):
+        """预处理 ES2020 语法，转换为兼容语法"""
+        # 将可选链 ?. 替换为普通访问 .
+        # 注意：这只是为了让解析器能解析，实际替换时会使用原始代码
+        result = js_code
+        
+        # 替换 ?. 为 . （仅用于解析）
+        result = re.sub(r'\?\.', '.', result)
+        
+        # 替换 ?? 为 || （仅用于解析）
+        result = re.sub(r'\?\?', '||', result)
+        
+        return result
     
     @classmethod
     def _run_pyjsparser_extraction(cls, js_code):
