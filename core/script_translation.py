@@ -227,6 +227,13 @@ class JSASTExtractor:
         """使用 esprima 提取 JavaScript 字符串"""
         try:
             tree = esprima.parseModule(js_code, {'range': True, 'tolerant': True, 'loc': True})
+        except esprima.Error as e:
+            error_msg = str(e)
+            if 'Unexpected token' in error_msg:
+                match = re.search(r'line (\d+)', error_msg)
+                line_info = f"第{match.group(1)}行" if match else "未知行"
+                raise RuntimeError(f"JavaScript 语法错误 ({line_info}): {error_msg}")
+            raise RuntimeError(f"AST 解析失败: {error_msg}")
         except Exception as e:
             raise RuntimeError(f"AST parse error: {e}")
 
