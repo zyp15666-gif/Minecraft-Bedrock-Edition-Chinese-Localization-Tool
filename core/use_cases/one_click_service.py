@@ -136,10 +136,11 @@ class OneClickServiceUseCase:
             else:
                 log("没有需要硬编码汉化的条目")
 
-            # 最后：删除 JSON 中可能残留的 value 包裹（统一清理）
-            self.file_handler.remove_value_from_json_folder(bp_path)
-            if rp_path and os.path.exists(rp_path):
-                self.file_handler.remove_value_from_json_folder(rp_path)
+            # 最后：删除 blocks 文件夹中 JSON 的 value 包裹
+            blocks_path = os.path.join(bp_path, "blocks")
+            if os.path.exists(blocks_path):
+                self.file_handler.remove_value_from_json_folder(blocks_path)
+                log("已清理 blocks 文件夹的 value 字段")
 
             progress(1.0)
             log(f"一条龙服务完成: {len(translated)}条")
