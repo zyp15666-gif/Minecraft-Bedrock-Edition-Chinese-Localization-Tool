@@ -11,7 +11,17 @@ import math
 
 logger = logging.getLogger(__name__)
 
-import esprima
+try:
+    import esprima
+    HAS_ESPRIMA = True
+except ImportError:
+    HAS_ESPRIMA = False
+
+try:
+    import pyjsparser
+    HAS_PYJSPARSER = True
+except ImportError:
+    HAS_PYJSPARSER = False
 
 
 # -- 辅助函数 -------------------------------------------------
@@ -219,8 +229,80 @@ class JSASTExtractor:
 
     @classmethod
     def _parse_js_ast(cls, js_code):
-        """使用 esprima 解析 JavaScript AST 并提取字符串"""
-        return cls._run_esprima_extraction(js_code)
+        """使用可用解析器解析 JavaScript AST 并提取字符串"""
+        errors = []
+        
+        if HAS_PYJSPARSER:
+            try:
+                return cls._run_pyjsparser_extraction(js_code)
+            except Exception as e:
+                errors.append(f"pyjsparser: {e}")
+        
+        if HAS_ESPRIMA:
+            try:
+                return cls._run_esprima_extraction(js_code)
+            except Exception as e:
+                errors.append(f"esprima: {e}")
+        
+        raise RuntimeError(f"所有解析器都失败了: {'; '.join(errors)}")
+    
+    @classmethod
+    def _run_pyjsparser_extraction(cls, js_code):
+        """使用 pyjsparser 提取 JavaScript 字符串（支持 ES6+）"""
+        try:
+            parser = pyjsparser.PyJsParser()
+            tree = parser.parse(js_code)
+        except Exception as e:
+            raise RuntimeError(f"pyjsparser 解析失败: {e}")
+        
+        raw = []
+        
+        def walk(node):
+            if node is None:
+                return
+            if isinstance(node, list):
+                for item in node:
+                    walk(item)
+                return
+            if not isinstance(node, dict):
+                return
+            
+            node_type = node.get('type')
+            if node_type == 'Literal':
+                value = node.get('value')
+                if isinstance(value, str):
+                    raw.append({
+                        'text': value,
+                        'raw': node.get('raw', ''),
+                        'range': (node.get('start', 0), node.get('end', 0)),
+                        'quote': node.get('raw', '"')[0] if node.get('raw') else '"',
+                        'context': ''
+                    })
+            elif node_type == 'TemplateLiteral':
+                quasis = node.get('quasis', [])
+                expressions = node.get('expressions', [])
+                if quasis and len(expressions) == 0:
+                    quasi = quasis[0]
+                    cooked = quasi.get('value', {}).get('cooked', '') or ''
+                    raw_value = quasi.get('value', {}).get('raw', '') or ''
+                    raw.append({
+                        'text': cooked,
+                        'raw': raw_value,
+                        'range': (node.get('start', 0), node.get('end', 0)),
+                        'quote': '`',
+                        'context': ''
+                    })
+            
+            for key, value in node.items():
+                if key in ('type', 'loc', 'range', 'start', 'end'):
+                    continue
+                if isinstance(value, list):
+                    walk(value)
+                elif isinstance(value, dict):
+                    walk(value)
+        
+        walk(tree)
+        return raw
     
     @classmethod
     def _run_esprima_extraction(cls, js_code):
@@ -232,6 +314,8 @@ class JSASTExtractor:
             if 'Unexpected token' in error_msg:
                 match = re.search(r'line (\d+)', error_msg)
                 line_info = f"第{match.group(1)}行" if match else "未知行"
+                if '?.' in js_code or '??' in js_code:
+                    raise RuntimeError(f"JavaScript 语法错误 ({line_info}): 文件使用了 ES2020 新特性（可选链 ?. 或空值合并 ??），当前解析器不支持。请使用功能10批量处理，或手动翻译此文件。")
                 raise RuntimeError(f"JavaScript 语法错误 ({line_info}): {error_msg}")
             raise RuntimeError(f"AST 解析失败: {error_msg}")
         except Exception as e:
