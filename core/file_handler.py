@@ -902,10 +902,11 @@ class FileHandler:
     
 
     def _set_json_value(self, filepath: str, json_path: list, new_value: str):
+        """根据路径列表修改JSON文件中的值（路径元素为字符串键或整数索引）"""
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # 定位到父容器和最后一个键
+        # 定位到父容器
         container = data
         for part in json_path[:-1]:
             if isinstance(container, dict):
@@ -918,9 +919,8 @@ class FileHandler:
                 container = container[part]
             else:
                 raise TypeError(f"无法在 {type(container)} 中索引")
+
         last_key = json_path[-1]
-        
-        # 修改值
         if isinstance(container, dict):
             container[last_key] = new_value
         elif isinstance(container, list):

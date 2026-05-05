@@ -12,13 +12,6 @@ class ExtractAndTranslateUseCase:
     """提取并翻译的用例类"""
     
     def __init__(self, file_handler, translator):
-        """
-        初始化用例
-        
-        Args:
-            file_handler: FileHandler实例
-            translator: Translator实例
-        """
         self.file_handler = file_handler
         self.translator = translator
     
@@ -29,18 +22,6 @@ class ExtractAndTranslateUseCase:
         progress_callback: Optional[Callable[[float, int, int], None]] = None,
         log_callback: Optional[Callable[[str], None]] = None
     ) -> Dict[str, Any]:
-        """
-        执行提取并翻译操作
-        
-        Args:
-            bp_path: BP文件夹路径
-            rp_path: RP文件夹路径（可选）
-            progress_callback: 进度回调函数
-            log_callback: 日志回调函数
-            
-        Returns:
-            操作结果
-        """
         def log(msg):
             if log_callback:
                 log_callback(msg)
@@ -50,7 +31,6 @@ class ExtractAndTranslateUseCase:
                 progress_callback(value, remaining_count, remaining_time)
         
         try:
-            # 检查BP路径
             if not bp_path:
                 return {
                     'success': False,
@@ -81,16 +61,13 @@ class ExtractAndTranslateUseCase:
             log(f"正在翻译 {len(entries)} 条...")
 
             def translate_progress(p, remaining_count=0, remaining_time=0):
-                # 将翻译进度映射到 0.2-0.8 区间，留 0.2 给写入操作
                 if p < 1.0:
                     p = max(p, 0.2)
                     mapped_progress = 0.2 + (p - 0.2) * 0.75
                     progress(mapped_progress, remaining_count, remaining_time)
                 else:
-                    # 翻译完成但未完全结束，保持在 0.8
                     progress(0.8, 0, 0)
 
-            # 使用批量AI翻译方法
             translated = self.translator.translate_entries_batch(
                 entries, translate_progress, log)
 
@@ -104,13 +81,24 @@ class ExtractAndTranslateUseCase:
 
             progress(0.8)
 
+            # ===== 新增步骤：硬编码汉化（二、三层） =====
+            log("正在应用硬编码汉化...")
+            hardcoded = {k: v for k, v in translated.items()
+                         if k.startswith('book.') or k.startswith('auto.')}
+            if hardcoded:
+                self.file_handler.apply_hardcoded_translations(bp_path, hardcoded)
+                if rp_path and os.path.exists(rp_path):
+                    self.file_handler.apply_hardcoded_translations(rp_path, hardcoded)
+                log(f"硬编码汉化完成: {len(hardcoded)} 条")
+            else:
+                log("没有需要硬编码汉化的条目")
+
             # 步骤3: 写入文件
             log("正在写入文件...")
             self.file_handler.merge_and_write_lang(
                 bp_path, translated, is_translated=True)
             self.file_handler.ensure_languages_json(bp_path)
 
-            # 如果有RP文件夹也写入
             if rp_path and os.path.exists(rp_path):
                 self.file_handler.merge_and_write_lang(
                     rp_path, translated, is_translated=True)

@@ -135,13 +135,6 @@ class OneClickServiceUseCase:
                     self.file_handler.apply_hardcoded_translations(rp_path, hardcoded)
                 log(f"硬编码汉化完成: {len(hardcoded)} 条")
 
-            # 最后：删除 JSON 中可能残留的 value 包裹（统一清理）
-            self.file_handler.remove_value_from_json_folder(bp_path)
-            if rp_path and os.path.exists(rp_path):
-                self.file_handler.remove_value_from_json_folder(rp_path)
-                log(f"硬编码汉化完成: {len(hardcoded)} 条")
-            else:
-                log("没有需要硬编码汉化的条目")
             # 最后：删除 JSON 中的 value 包裹（如果有）
             self.file_handler.remove_value_from_json_folder(bp_path)
             if rp_path and os.path.exists(rp_path):
