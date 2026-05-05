@@ -431,9 +431,9 @@ class MinecraftTranslatorApp:
             'remove_value_for_specified_folder': self.func_handlers.on_batch_delete_value,
             'restore_value_for_specified_folder': self.func_handlers.on_batch_restore_value,
             'translate_lang_file': self.func_handlers.on_translate_lang_file,
-            'process_guidebook_js': self.func_handlers.on_translate_single_js_file,
+            'process_guidebook_js': self.process_guidebook_js,
             'extract_entity_display_names': self.func_handlers.on_adapt_entity_display_names,
-            'script_hardcode_translation': self.func_handlers.on_script_hardcode_translation,
+            'script_hardcode_translation': self.script_hardcode_translation,
             'on_backup_management': self.func_handlers.on_backup_management,
             'translate_mcstructure': self.func_handlers.on_translate_mcstructure,
         }
