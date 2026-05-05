@@ -2,9 +2,16 @@
 # -*- coding: utf-8 -*-
 """
 替换display_name的用例
+
+处理三层替换：
+- 第1层：minecraft:display_name → 替换为语言键引用
+- 第2层：战利品表书籍内容 → 硬编码替换翻译结果
+- 第3层：包含 § 颜色代码的字符串 → 硬编码替换翻译结果
 """
 
+import os
 from typing import Dict, Optional, Callable, Any
+from pathlib import Path
 
 
 class ReplaceDisplayNamesUseCase:
@@ -26,7 +33,7 @@ class ReplaceDisplayNamesUseCase:
         log_callback: Optional[Callable[[str], None]] = None
     ) -> Dict[str, Any]:
         """
-        执行替换display_name操作
+        执行替换display_name操作（三层处理）
         
         Args:
             bp_path: BP文件夹路径
@@ -45,7 +52,6 @@ class ReplaceDisplayNamesUseCase:
                 progress_callback(value, remaining_count, remaining_time)
         
         try:
-            # 检查BP路径
             if not bp_path:
                 return {
                     'success': False,
@@ -54,10 +60,9 @@ class ReplaceDisplayNamesUseCase:
                     'message': '请先选择 BP 文件夹'
                 }
 
-            log("开始替换 display_name...")
-            progress(0.1)
+            log("开始三层替换...")
+            progress(0.05)
 
-            # 备份BP文件夹
             backup = self.file_handler.backup_folder(bp_path)
             if not backup:
                 return {
@@ -68,21 +73,55 @@ class ReplaceDisplayNamesUseCase:
                 }
 
             log(f"已备份至: {backup}")
-            progress(0.3)
+            progress(0.1)
 
-            # 执行替换
-            log("正在替换 display_name...")
-            count = self.file_handler.replace_display_names_with_lang_key(
-                bp_path)
+            total_files = 0
+            hardcoded_count = 0
+
+            zh_cn_path = os.path.join(bp_path, "texts", "zh_CN.lang")
+            lang_entries = {}
+            if os.path.exists(zh_cn_path):
+                lang_entries = self.file_handler.parse_lang_file(zh_cn_path)
+                log(f"从 zh_CN.lang 读取 {len(lang_entries)} 条翻译")
+            else:
+                log("⚠️ 未找到 zh_CN.lang，跳过硬编码替换")
+
+            log("第1层: 替换 display_name 为语言键引用...")
+            layer1_count = self.file_handler.replace_display_names_with_lang_key(bp_path)
+            log(f"  第1层完成: {layer1_count} 个文件")
+            total_files += layer1_count
+            progress(0.4)
+
+            if lang_entries:
+                hardcoded_entries = {
+                    k: v for k, v in lang_entries.items()
+                    if k.startswith('book.') or k.startswith('auto.')
+                }
+
+                if hardcoded_entries:
+                    log(f"第2层/第3层: 硬编码替换 {len(hardcoded_entries)} 条...")
+                    hardcoded_count = self.file_handler.apply_hardcoded_translations(
+                        bp_path, hardcoded_entries)
+                    log(f"  第2层/第3层完成: {hardcoded_count} 条")
+                    total_files += hardcoded_count
+                else:
+                    log("  无第2层/第3层条目需要处理")
 
             progress(1.0)
-            log(f"替换完成: {count} 个文件")
+
+            summary = f"替换完成: 第1层 {layer1_count} 个文件"
+            if hardcoded_count > 0:
+                summary += f", 第2层/第3层 {hardcoded_count} 条硬编码"
+
+            log(summary)
 
             return {
                 'success': True,
-                'file_count': count,
+                'file_count': total_files,
+                'layer1_count': layer1_count,
+                'hardcoded_count': hardcoded_count,
                 'backup_path': backup,
-                'message': f'替换完成，共处理 {count} 个JSON文件'
+                'message': summary
             }
 
         except Exception as ex:
