@@ -59,13 +59,26 @@ class FunctionHandlers:
             if not hasattr(app.functions, 'log_callback'):
                 setattr(app.functions, 'log_callback', log_callback)
 
-            result = getattr(app.functions, method_name)(
-                bp_path=app.bp_path,
-                rp_path=app.rp_path,
-                progress_callback=progress_callback,
-                log_callback=log_callback,
-                **extra_kwargs
-            )
+            method_params = {
+                'extract_only': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+                'extract_and_translate': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+                'replace_display_names': {'bp_path': app.bp_path},
+                'batch_delete_value': {'folder_path': app.bp_path},
+                'batch_restore_value': {'folder_path': app.bp_path},
+                'translate_lang_file': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+                'one_click_service': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+                'adapt_entity_display_names': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+                'translate_single_js_file': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+                'script_hardcode_translation': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+                'translate_mcstructure': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+            }
+            
+            params = method_params.get(method_name, {'bp_path': app.bp_path, 'rp_path': app.rp_path})
+            params.update(extra_kwargs)
+            params['progress_callback'] = progress_callback
+            params['log_callback'] = log_callback
+
+            result = getattr(app.functions, method_name)(**params)
             return result
 
         def on_progress(value, remaining_count=0, remaining_time=0):
