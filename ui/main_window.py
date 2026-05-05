@@ -2822,14 +2822,20 @@ class MinecraftTranslatorApp:
                     for file_analysis in file_analyses:
                         file_path = file_analysis['file_path']
                         file_name = os.path.basename(file_path)
-                        needs_count = file_analysis['needs_translation_count']
-                        total_count = file_analysis['total_strings']
+                        needs_count = file_analysis.get('needs_translation_count', 0)
+                        total_count = file_analysis.get('total_strings', 0)
+                        error = file_analysis.get('error')
                         
-                        # 文件信息行
-                        file_info_row = ft.Row([
-                            ft.Text(file_name, size=12, expand=True),
-                            ft.Text(f"{needs_count}/{total_count}", size=12, color=ft.Colors.GREEN if needs_count > 0 else ft.Colors.GREY)
-                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+                        if error:
+                            file_info_row = ft.Row([
+                                ft.Text(file_name, size=12, expand=True),
+                                ft.Text(f"错误: {error[:30]}", size=12, color=ft.Colors.RED)
+                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+                        else:
+                            file_info_row = ft.Row([
+                                ft.Text(file_name, size=12, expand=True),
+                                ft.Text(f"{needs_count}/{total_count}", size=12, color=ft.Colors.GREEN if needs_count > 0 else ft.Colors.GREY)
+                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
                         
                         file_list.append(file_info_row)
                     
