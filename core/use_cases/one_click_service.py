@@ -113,23 +113,40 @@ class OneClickServiceUseCase:
                     'translate_count': 0,
                     'message': '翻译失败'
                 }
-
             # 步骤4: 删除value + 写入lang
-            log("步骤4/4: 删除value并写入...")
+            # 步骤4: 写入语言文件（翻译后的键值对写入 zh_CN.lang）
+            log("步骤4/5: 写入语言文件...")
             progress(0.75)
-
-            self.file_handler.remove_value_from_json_folder(bp_path)
             self.file_handler.merge_and_write_lang(
                 bp_path, translated, is_translated=True)
             self.file_handler.ensure_languages_json(bp_path)
-
-            # 如果有RP也处理
             if rp_path and os.path.exists(rp_path):
-                self.file_handler.remove_value_from_json_folder(rp_path)
                 self.file_handler.merge_and_write_lang(
                     rp_path, translated, is_translated=True)
                 self.file_handler.ensure_languages_json(rp_path)
-                log(f"同时处理RP: {rp_path}")
+            # 步骤5: 硬编码汉化（二、三层字段直接替换为中文）
+            log("步骤5/5: 应用硬编码汉化...")
+            progress(0.85)
+            hardcoded = {k: v for k, v in translated.items()
+                         if k.startswith('book.') or k.startswith('auto.')}
+            if hardcoded:
+                self.file_handler.apply_hardcoded_translations(bp_path, hardcoded)
+                if rp_path and os.path.exists(rp_path):
+                    self.file_handler.apply_hardcoded_translations(rp_path, hardcoded)
+                log(f"硬编码汉化完成: {len(hardcoded)} 条")
+
+            # 最后：删除 JSON 中可能残留的 value 包裹（统一清理）
+            self.file_handler.remove_value_from_json_folder(bp_path)
+            if rp_path and os.path.exists(rp_path):
+                self.file_handler.remove_value_from_json_folder(rp_path)
+                log(f"硬编码汉化完成: {len(hardcoded)} 条")
+            else:
+                log("没有需要硬编码汉化的条目")
+            # 最后：删除 JSON 中的 value 包裹（如果有）
+            self.file_handler.remove_value_from_json_folder(bp_path)
+            if rp_path and os.path.exists(rp_path):
+                self.file_handler.remove_value_from_json_folder(rp_path)
+
 
             progress(1.0)
             log(f"一条龙服务完成: {len(translated)}条")

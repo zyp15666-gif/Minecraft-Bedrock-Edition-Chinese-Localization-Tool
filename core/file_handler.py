@@ -366,6 +366,8 @@ class FileHandler:
                 print(f"[DEBUG] 自适应扫描失败 {filepath.name}: {e}")
         print(f"[DEBUG] 三层提取完成，共提取 {len(lang_entries)} 个条目")
         return lang_entries
+
+
     def _extract_book_contents(self, data: dict, filepath: str) -> Dict[str, str]:
         """从战利品表中提取 set_book_contents 的 title、author、pages"""
         entries = {}
@@ -374,40 +376,38 @@ class FileHandler:
 
         file_stem = Path(filepath).stem
 
-        for pool in data.get("pools", []):
-            for entry in pool.get("entries", []):
-                for func in entry.get("functions", []):
+        for pi, pool in enumerate(data["pools"]):
+            for ei, entry in enumerate(pool.get("entries", [])):
+                for fi, func in enumerate(entry.get("functions", [])):
                     if func.get("function") != "set_book_contents":
                         continue
-                    # 标题
+                    prefix = f"book.{file_stem}.pools.{pi}.entries.{ei}.functions.{fi}"
                     if "title" in func:
-                        key = f"book.{file_stem}.title"
+                        key = f"{prefix}.title"
                         entries[key] = func["title"]
-                    # 作者
                     if "author" in func:
-                        key = f"book.{file_stem}.author"
+                        key = f"{prefix}.author"
                         entries[key] = func["author"]
-                    # 每一页
                     for i, page_text in enumerate(func.get("pages", [])):
-                        key = f"book.{file_stem}.page.{i}"
+                        key = f"{prefix}.pages.{i}"
                         entries[key] = page_text
         return entries
-
     def _is_lang_reference(self, text: str) -> bool:
         """判断文本是否为 % 开头的语言键引用（如 %tile.ntk.xxx）"""
         return bool(re.match(r'^%\w[\w.]*', text.strip()))
 
     def _extract_color_code_strings(self, data, filepath: str, bp_folder: str,
                                     extracted_paths: set) -> Dict[str, str]:
-        """递归扫描所有含 § 的字符串，跳过语言键引用和已提取路径"""
         entries = {}
         rel_path = os.path.relpath(filepath, bp_folder).replace('\\', '/').replace('/', '-')
+        abs_path = str(filepath)  # 用于去重的绝对路径
 
         def scan(obj, path_parts):
             if isinstance(obj, str):
                 if '§' in obj and not self._is_lang_reference(obj):
                     key = f"auto.{rel_path}." + '.'.join(str(p) for p in path_parts)
-                    path_tuple = (rel_path, tuple(path_parts))
+                    # 去重使用绝对路径 + 路径元组
+                    path_tuple = (abs_path, tuple(path_parts))
                     if path_tuple not in extracted_paths and key not in entries:
                         entries[key] = obj
             elif isinstance(obj, dict):
@@ -419,6 +419,8 @@ class FileHandler:
 
         scan(data, [])
         return entries
+
+
 
     def parse_lang_file(self, filepath: str) -> Dict[str, str]:
         """解析lang文件"""
@@ -810,3 +812,121 @@ class FileHandler:
 
         logger.info(f"✅ 并行扫描完成，成功解析 {len(valid_results)}/{total_files} 个文件")
         return valid_results
+
+
+
+    def apply_hardcoded_translations(self, bp_folder: str, lang_entries: Dict[str, str]):
+        """将二三层翻译结果硬编码写回原始JSON文件"""
+        processed = 0
+        errors = 0
+        
+        for key, translated_text in lang_entries.items():
+            if not (key.startswith('book.') or key.startswith('auto.')):
+                continue
+            
+            try:
+                if key.startswith('book.'):
+                    # 格式: book.{file_stem}.pools.{pi}.entries.{ei}.functions.{fi}.{field}[.pages.{page}]
+                    parts = key.split('.')
+                    # 提取文件名部分：book后面的第一个点之前是 'book'，然后文件名可能包含点？
+                    # 我们规定文件名不含点，所以 parts[1] 是 file_stem。
+                    file_stem = parts[1]
+                    # 路径从 parts[2:] 开始，即 'pools', pi, 'entries', ei, ...
+                    path_parts = []
+                    i = 2
+                    while i < len(parts):
+                        seg = parts[i]
+                        # 数组索引：尝试转为 int，若成功则为索引，否则为键
+                        try:
+                            path_parts.append(int(seg))
+                        except ValueError:
+                            path_parts.append(seg)
+                        i += 1
+                    
+                    # 查找文件
+                    filepath = self._find_loot_table_file(bp_folder, file_stem + '.json')
+                    if not filepath:
+                        logger.warning(f"找不到战利品表文件: {file_stem}.json")
+                        errors += 1
+                        continue
+                    
+                elif key.startswith('auto.'):
+                    # 格式: auto.{rel_path_with_dashes}.{json_path_parts}
+                    auto_part = key[len('auto.'):]
+                    json_dot_index = auto_part.find('.json.')
+                    if json_dot_index == -1:
+                        logger.warning(f"无法解析auto键: {key}")
+                        errors += 1
+                        continue
+                    
+                    file_rel_part = auto_part[:json_dot_index + 5]  # 包含 .json
+                    json_path_str = auto_part[json_dot_index + 6:]
+                    file_rel = file_rel_part.replace('-', '/')
+                    filepath = os.path.join(bp_folder, file_rel)
+                    if not os.path.exists(filepath):
+                        logger.warning(f"找不到文件: {filepath}")
+                        errors += 1
+                        continue
+                    
+                    # 解析路径
+                    path_parts = []
+                    for seg in json_path_str.split('.'):
+                        try:
+                            path_parts.append(int(seg))
+                        except ValueError:
+                            path_parts.append(seg)
+                else:
+                    continue
+                
+                # 应用修改
+                self._set_json_value(filepath, path_parts, translated_text)
+                processed += 1
+                
+            except Exception as e:
+                logger.error(f"应用翻译失败 [{key}]: {e}")
+                errors += 1
+        
+        logger.info(f"硬编码汉化完成：成功 {processed} 条，失败 {errors} 条")
+        return processed
+    def _find_loot_table_file(self, bp_folder: str, filename: str) -> Optional[str]:
+        """在BP中搜索指定的战利品表文件"""
+        matches = []
+        for root, _, files in os.walk(bp_folder):
+            if filename in files:
+                matches.append(os.path.join(root, filename))
+        if not matches:
+            return None
+        if len(matches) > 1:
+            logger.warning(f"⚠️ 发现多个同名文件 {filename}，使用第一个: {matches[0]}")
+        return matches[0]
+    
+
+    def _set_json_value(self, filepath: str, json_path: list, new_value: str):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # 定位到父容器和最后一个键
+        container = data
+        for part in json_path[:-1]:
+            if isinstance(container, dict):
+                if part not in container:
+                    raise KeyError(f"键 {part} 不存在")
+                container = container[part]
+            elif isinstance(container, list):
+                if not isinstance(part, int):
+                    raise TypeError(f"期望整数索引，得到 {part}")
+                container = container[part]
+            else:
+                raise TypeError(f"无法在 {type(container)} 中索引")
+        last_key = json_path[-1]
+        
+        # 修改值
+        if isinstance(container, dict):
+            container[last_key] = new_value
+        elif isinstance(container, list):
+            container[last_key] = new_value
+        else:
+            raise TypeError("容器类型错误")
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=self.indent)
