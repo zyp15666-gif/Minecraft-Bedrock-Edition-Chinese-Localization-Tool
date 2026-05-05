@@ -65,12 +65,12 @@ class FunctionHandlers:
                 'replace_display_names': {'bp_path': app.bp_path},
                 'batch_delete_value': {'folder_path': app.bp_path},
                 'batch_restore_value': {'folder_path': app.bp_path},
-                'translate_lang_file': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+                'translate_lang_file': {'lang_file_path': app.bp_path, 'bp_path': app.bp_path, 'rp_path': app.rp_path},
                 'one_click_service': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
                 'adapt_entity_display_names': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
-                'translate_single_js_file': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
-                'script_hardcode_translation': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
-                'translate_mcstructure': {'bp_path': app.bp_path, 'rp_path': app.rp_path},
+                'translate_single_js_file': {'js_file_path': app.bp_path, 'mode': 2},
+                'script_hardcode_translation': {'bp_path': app.bp_path, 'mode': 2},
+                'translate_mcstructure': {'bp_path': app.bp_path},
             }
             
             params = method_params.get(method_name, {'bp_path': app.bp_path, 'rp_path': app.rp_path}).copy()

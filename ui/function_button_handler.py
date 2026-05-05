@@ -212,7 +212,7 @@ class FunctionButtonHandler:
     def on_adapt_entity_display_names(self, bp_path: str, rp_path: Optional[str] = None):
         """[8] 高亮实体信息显示名称适配"""
         self._run_feature_task(
-            method_name='extract_entity_display_names',
+            method_name='adapt_entity_display_names',
             operation_name='适配',
             log_prefix='[功能8] 开始提取实体显示名称...',
             bp_path=bp_path,
