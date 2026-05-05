@@ -68,8 +68,13 @@ class FunctionHandlers:
             )
             return result
 
+        def on_progress(value, remaining_count=0, remaining_time=0):
+            text = f"{log_prefix}... {int(value*100)}%" if value < 1 else f"{log_prefix}完成"
+            app.update_progress(value, text, remaining_count, remaining_time)
+
         app.run_background_task(
             task_fn,
+            on_progress=on_progress,
             on_result=self._handle_result,
             on_error=self._handle_error,
         )

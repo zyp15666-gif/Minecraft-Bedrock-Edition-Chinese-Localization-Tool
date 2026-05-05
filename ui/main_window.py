@@ -279,6 +279,8 @@ class MinecraftTranslatorApp:
         return self.task_service.run_with_ui_callbacks(
             task_func,
             *args,
+            on_progress=kwargs.get('on_progress'),
+            on_log=kwargs.get('on_log'),
             on_result=kwargs.get('on_result'),
             on_error=kwargs.get('on_error'),
             on_complete=self.enable_all_buttons,
