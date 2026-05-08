@@ -6,8 +6,10 @@ FunctionButtonHandler基本功能测试
 测试功能按钮事件处理器的基本功能
 """
 
-import pytest
 from unittest.mock import Mock
+
+import pytest
+
 from ui.function_button_handler import FunctionButtonHandler
 
 
@@ -40,27 +42,27 @@ class TestFunctionButtonHandlerBasic:
         """测试仅提取功能 - 有效路径"""
         # 调用方法
         handler.on_extract_only(mock_bp_path)
-        
+
         # 验证调用了应用服务
         assert True
 
     def test_on_extract_and_translate_with_valid_path(self, handler, mock_bp_path, mock_app_service):
         """测试提取+翻译功能 - 有效路径"""
         handler.on_extract_and_translate(mock_bp_path)
-        
+
         assert True
 
     def test_on_one_click_service_with_valid_path(self, handler, mock_bp_path, mock_app_service):
         """测试一条龙服务 - 有效路径"""
         handler.on_one_click_service(mock_bp_path)
-        
+
         assert True
 
     def test_register_buttons(self, handler):
         """测试注册按钮"""
         buttons = [Mock(), Mock(), Mock()]
         handler.register_buttons(buttons)
-        
+
         assert handler.function_buttons == buttons
 
 

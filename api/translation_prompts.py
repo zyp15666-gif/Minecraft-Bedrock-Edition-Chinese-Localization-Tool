@@ -13,8 +13,9 @@
 # 兼容旧格式: default.stage1, default.stage2 仍然可用
 
 import os
+from typing import Dict, Optional
+
 import yaml
-from typing import Optional, Dict
 
 _PROMPTS_CACHE: Optional[Dict] = None
 

@@ -5,19 +5,20 @@ UI工具函数模块 - 从main_window_flet.py分离出的通用辅助函数
 所有函数接收必要的参数并返回计算结果。
 """
 
+from typing import Any, Dict
+
 import flet as ft
-from typing import Dict, Any, Optional, List, Tuple
 
 
 def get_theme_color(page: ft.Page, theme_colors: Dict[str, Dict[str, Any]], color_name: str) -> Any:
     """
     获取当前主题下的颜色
-    
+
     Args:
         page: ft.Page对象，用于获取当前主题模式
         theme_colors: 主题颜色字典，包含'dark'和'light'键
         color_name: 颜色名称
-        
+
     Returns:
         对应主题模式下的颜色值
     """
@@ -31,16 +32,16 @@ def get_theme_color(page: ft.Page, theme_colors: Dict[str, Dict[str, Any]], colo
 def generate_api_name(config: Dict[str, Any], provider: str) -> str:
     """
     生成唯一的API名称
-    
+
     Args:
         config: 配置字典
-        provider: API提供商名�?        
+        provider: API提供商名�?
     Returns:
         唯一的API名称
     """
     base_name = f"{provider}_"
     existing_names = set()
-    
+
     # 收集现有API名称
     for provider_key in ["deepseek", "qwen", "zhipu", "doubao", "local_ollama"]:
         apis = config.get(provider_key, [])
@@ -48,7 +49,7 @@ def generate_api_name(config: Dict[str, Any], provider: str) -> str:
             for api in apis:
                 if "name" in api:
                     existing_names.add(api["name"])
-    
+
     # 生成唯一名称
     counter = 1
     while True:
@@ -61,10 +62,10 @@ def generate_api_name(config: Dict[str, Any], provider: str) -> str:
 def create_ui_scale(scale: float) -> Dict[str, Any]:
     """
     创建UI缩放配置
-    
+
     Args:
         scale: 缩放因子
-        
+
     Returns:
         UI缩放配置字典
     """
@@ -83,10 +84,10 @@ def create_ui_scale(scale: float) -> Dict[str, Any]:
 
 def format_file_size(size_bytes: int) -> str:
     """
-    格式化文件大�?    
+    格式化文件大�?
     Args:
         size_bytes: 文件大小（字节）
-        
+
     Returns:
         格式化后的文件大小字符串
     """
@@ -103,12 +104,12 @@ def format_file_size(size_bytes: int) -> str:
 def truncate_text(text: str, max_length: int, ellipsis: str = "...") -> str:
     """
     截断文本，添加省略号
-    
+
     Args:
         text: 原始文本
         max_length: 最大长度
         ellipsis: 省略号字符串
-        
+
     Returns:
         截断后的文本
     """

@@ -4,14 +4,15 @@
 core/metrics_collector.py 单元测试
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
-import time
 import threading
-from collections import deque
+import time
+
+import pytest
 
 from core.metrics_collector import MetricsCollector, get_metrics_collector
 

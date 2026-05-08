@@ -2,11 +2,11 @@
 端到端文件处理器测试 — 在临时目录构建BP结构，执行提取→写入完整流程
 """
 
-import os
 import json
-import tempfile
+import os
 import shutil
-from pathlib import Path
+import tempfile
+
 import pytest
 
 from core.file_handler import FileHandler

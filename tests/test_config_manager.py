@@ -4,14 +4,13 @@
 config/config_manager.py 单元测试
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
-import yaml
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+
 from config.config_manager import ConfigManager
 
 

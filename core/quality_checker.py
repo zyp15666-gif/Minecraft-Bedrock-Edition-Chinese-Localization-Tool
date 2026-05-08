@@ -16,7 +16,8 @@
 
 import re
 import threading
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
+
 from core.log_manager import get_logger
 
 logger = get_logger(__name__)
@@ -42,12 +43,12 @@ class TranslationQualityChecker:
         self.term_service = term_service
         self.cache_enabled = cache_enabled
         self.cache_max_size = cache_max_size
-        
+
         # 质量阈值配置
         self.min_length_ratio = min_length_ratio
         self.max_length_ratio = max_length_ratio
         self.english_max_ratio = english_max_ratio
-        
+
         # 质量检查结果缓存 {(original, translated): bool}
         self._quality_cache = {}
         self._quality_cache_keys = []  # 用于实现LRU缓存
@@ -125,7 +126,7 @@ class TranslationQualityChecker:
                     self._quality_cache_keys.remove(cache_key)
                     self._quality_cache_keys.append(cache_key)
                     return self._quality_cache[cache_key]
-        
+
         issues = []
 
         # 1. 检查AI提示信息
@@ -195,7 +196,7 @@ class TranslationQualityChecker:
         Returns:
             True如果检测到明确AI提示（critical级别）
         """
-        translated_lower = translated.lower()
+        translated.lower()
 
         for prompt in self.ai_prompts_critical:
             if prompt in translated:
@@ -251,7 +252,7 @@ class TranslationQualityChecker:
                 # 分词后计算词汇数量
                 original_words = len(list(jieba.cut(original)))
                 translated_words = len(list(jieba.cut(translated)))
-                
+
                 # 对于中文翻译，词汇数量比例应该更接近1
                 if translated_words >= original_words * 0.5 and translated_words <= original_words * 1.5:
                     # 词汇数量合理，即使字符长度比例不太合理，也认为通过
@@ -259,7 +260,7 @@ class TranslationQualityChecker:
             except ImportError:
                 # jieba库不存在，使用原有的检查逻辑
                 pass
-            
+
             msg = f"翻译结果长度不合理：{len(translated)} vs {len(original)} (比例: {ratio:.2f}, 阈值: [{min_ratio}, {max_ratio}])"
             logger.warning(f"[翻译质量检查] {msg}")
             return False, msg
@@ -364,7 +365,6 @@ class TranslationQualityChecker:
         Returns:
             分析结果字典
         """
-        from typing import Any
 
         total = len(pairs)
         passed = 0
@@ -477,7 +477,7 @@ if __name__ == "__main__":
         print(f"   翻译: '{translated}'")
         print(f"   预期: {expected}, 实际: {result}")
         if result != expected:
-            print(f"   ⚠️  测试失败!")
+            print("   ⚠️  测试失败!")
         print()
 
     # 批量分析测试

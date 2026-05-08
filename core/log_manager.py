@@ -9,14 +9,14 @@
 4. 支持上下文管理器协议
 """
 
-import os
-import logging
-from logging.handlers import RotatingFileHandler
 import datetime
+import logging
+import os
 import shutil
-from pathlib import Path
-from typing import Dict, Any, Optional
+from logging.handlers import RotatingFileHandler
+from typing import Any, Dict, Optional
 
+from .app_paths import get_documents_app_dir
 from .utils import sanitize_log_message
 
 
@@ -44,19 +44,17 @@ class LogManager:
 
     def __init__(self, base_dir: Optional[str] = None, config: Optional[Dict[str, Any]] = None):
         """初始化日志管理器
-        
+
         Args:
             base_dir: 基础目录路径，如果为None则使用用户文档目录
             config: 配置字典，如果为None则尝试从ConfigManager获取或使用默认值
         """
         self.config = config or self._load_config()
-        
+
         if base_dir:
             self.log_dir = os.path.join(base_dir, "logs")
         else:
-            documents_dir = os.path.expanduser(r"~\Documents")
-            self.log_dir = os.path.join(
-                documents_dir, "Minecraft基岩版汉化工具", "logs")
+            self.log_dir = str(get_documents_app_dir() / "logs")
 
         self._create_log_dir()
         self._clean_old_logs()
@@ -64,26 +62,26 @@ class LogManager:
 
         self.crashed = False
         self._initialized = True
-    
+
     def __enter__(self) -> 'LogManager':
         """上下文管理器入口"""
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """上下文管理器退出"""
         self.cleanup()
-    
+
     class SanitizedLogFormatter(logging.Formatter):
         """脱敏日志格式化器，自动隐藏敏感信息"""
-        
+
         def format(self, record):
             formatted = super().format(record)
             sanitized = sanitize_log_message(formatted, hide_api_keys=True, max_visible_length=50)
             return sanitized
-    
+
     def _load_config(self) -> Dict[str, Any]:
         """加载配置
-        
+
         尝试从ConfigManager获取配置，如果失败则返回默认配置
         """
         try:
@@ -151,7 +149,7 @@ class LogManager:
         today = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         log_filename = f"minecraft_translator_{today}.log"
         self.log_path = os.path.join(self.log_dir, log_filename)
-        
+
         log_level_str = self.config.get("basic", {}).get("log_level", "INFO")
         log_level = self._parse_log_level(log_level_str)
         print(f"📝 日志级别配置: {log_level_str} -> {logging.getLevelName(log_level)}")
@@ -191,7 +189,7 @@ class LogManager:
 
         logger.info(f"日志系统初始化完成，日志文件: {self.log_path}")
         print(f"🎮 日志系统已初始化，日志文件保存位置: {self.log_path}")
-    
+
     def _parse_log_level(self, level_str: str) -> int:
         """将字符串日志级别转换为logging常量"""
         level_map = {
@@ -211,14 +209,14 @@ class LogManager:
     def mark_user_interaction(self, action_type: str = None, details: str = None):
         """标记用户交互"""
         logger = logging.getLogger()
-        
+
         if action_type and details:
             log_message = f"👤 用户交互: {action_type} - {details}"
         elif action_type:
             log_message = f"👤 用户交互: {action_type}"
         else:
             log_message = "👤 用户交互事件记录"
-            
+
         logger.debug(log_message)
         print(log_message)
 
@@ -258,7 +256,7 @@ class LogManager:
                         except OSError:
                             _time.sleep(0.3)
                     else:
-                        print(f"⚠️ 归档日志失败（文件被占用），保留当前日志")
+                        print("⚠️ 归档日志失败（文件被占用），保留当前日志")
 
                     json_log = self.log_path.replace(".log", ".jsonl")
                     if os.path.exists(json_log):
@@ -332,23 +330,23 @@ class LogManager:
 
     def get_logger(self, name: str) -> logging.Logger:
         """获取指定名称的logger
-        
+
         Args:
             name: logger名称
-            
+
         Returns:
             logging.Logger实例
         """
         return logging.getLogger(name)
-    
+
     @staticmethod
     def create_with_defaults(base_dir: Optional[str] = None, try_load: bool = True) -> 'LogManager':
         """使用默认配置创建LogManager实例
-        
+
         Args:
             base_dir: 基础目录路径
             try_load: 是否尝试从ConfigManager加载配置
-            
+
         Returns:
             LogManager实例
         """
@@ -359,7 +357,7 @@ class LogManager:
                 config = ConfigManager().config
             except Exception:
                 pass
-        
+
         return LogManager(base_dir, config)
 
 
@@ -371,11 +369,11 @@ log_manager: Optional[LogManager] = None
 
 def init_logger(base_dir: Optional[str] = None, config: Optional[Dict[str, Any]] = None) -> LogManager:
     """初始化日志系统（向后兼容，逐步废弃）
-    
+
     Args:
         base_dir: 基础目录路径
         config: 配置字典
-        
+
     Returns:
         LogManager实例
     """
@@ -387,14 +385,14 @@ def init_logger(base_dir: Optional[str] = None, config: Optional[Dict[str, Any]]
 
 def get_logger(name: str) -> logging.Logger:
     """获取logger（向后兼容，逐步废弃）
-    
+
     推荐使用依赖注入方式：
-    
+
     ```python
     # 旧方式（逐步废弃）
     from core.log_manager import get_logger
     logger = get_logger(__name__)
-    
+
     # 新方式（推荐）
     from core.log_manager import LogManager
     with LogManager.create_with_defaults() as log_mgr:
@@ -404,10 +402,10 @@ def get_logger(name: str) -> logging.Logger:
             def __init__(self, logger=None):
                 self.logger = logger or logging.getLogger(__name__)
     ```
-    
+
     Args:
         name: logger名称
-        
+
     Returns:
         logging.Logger实例
     """
@@ -419,7 +417,7 @@ def get_logger(name: str) -> logging.Logger:
 
 def get_log_manager() -> LogManager:
     """获取全局LogManager实例（向后兼容，逐步废弃）
-    
+
     Returns:
         LogManager实例
     """

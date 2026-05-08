@@ -16,12 +16,12 @@ def update_lock_file():
     print("=" * 60)
     print("更新依赖锁定文件")
     print("=" * 60)
-    
+
     project_root = Path(__file__).parent.parent
     lock_file = project_root / "requirements.lock"
-    
+
     print(f"\n📝 生成锁定文件: {lock_file}")
-    
+
     try:
         # 运行pip freeze
         result = subprocess.run(
@@ -30,17 +30,17 @@ def update_lock_file():
             text=True,
             check=True
         )
-        
+
         # 写入锁定文件
         with open(lock_file, 'w', encoding='utf-8') as f:
             f.write("# 依赖锁定文件 - 由pip freeze生成\n")
             f.write("# 此文件确保所有环境使用相同的依赖版本\n")
             f.write("# 不要手动修改此文件，使用 python scripts/update_lock_file.py 重新生成\n\n")
             f.write(result.stdout)
-        
+
         print(f"✅ 锁定文件已更新: {lock_file}")
         print(f"   依赖数量: {len(result.stdout.strip().split(chr(10)))}")
-        
+
     except subprocess.CalledProcessError as e:
         print(f"❌ 更新失败: {e}")
         sys.exit(1)

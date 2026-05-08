@@ -13,15 +13,15 @@
 - 敏感配置项保护
 """
 
-import os
-import sys
-import json
 import base64
 import hashlib
+import json
 import logging
-from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
+import os
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +67,8 @@ class SecureStorage:
             return
 
         if storage_path is None:
-            if getattr(sys, 'frozen', False):
-                base_dir = Path(os.environ.get('USERPROFILE', '~')) / "Documents" / "Minecraft基岩版汉化工具"
-            else:
-                base_dir = Path(__file__).parent.parent
-
-            self._storage_path = base_dir / ".secure_storage"
+            from core.app_paths import get_secure_storage_path
+            self._storage_path = get_secure_storage_path()
         else:
             self._storage_path = Path(storage_path)
 
@@ -275,7 +271,6 @@ class SecureStorage:
         if not api_key:
             return False
 
-        key = f"api_keys.{provider}.{api_name}"
 
         if 'api_keys' not in self._data:
             self._data['api_keys'] = {}

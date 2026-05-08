@@ -2,10 +2,14 @@
 性能指标采集器 — 环形缓冲区存储最近 N 个数据点，供实时图表使用
 """
 
-import time
 import threading
+import time
 from collections import deque
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, Optional
+
+from core.log_manager import get_logger
+
+logger = get_logger(__name__)
 
 
 class MetricsCollector:
@@ -32,6 +36,12 @@ class MetricsCollector:
             self._timestamps.append(t)
             self._translation_rate.append(rate)
             self._total_translated += count
+            if self._total_translated > 0 and self._total_translated % 50 == 0:
+                logger.debug(
+                    "metrics: 累计翻译 %s 条, 最近速率 %.2f 条/秒",
+                    self._total_translated,
+                    rate,
+                )
 
     def record_api_call(self, response_time: float, success: bool):
         with self._lock:
@@ -42,7 +52,9 @@ class MetricsCollector:
 
     def record_memory(self):
         try:
-            import psutil, os
+            import os
+
+            import psutil
             process = psutil.Process(os.getpid())
             mb = process.memory_info().rss / 1024 / 1024
             with self._lock:

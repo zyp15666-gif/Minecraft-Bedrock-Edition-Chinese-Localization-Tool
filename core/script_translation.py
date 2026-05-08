@@ -4,10 +4,18 @@
 脚本文件夹硬编码汉化模块 - 使用 esprima AST 精确定位 + 无占位符颜色代码翻译
 """
 
-import time, os, re, json, shutil, hashlib, tempfile, logging, traceback, threading
-from typing import Dict, List, Any, Optional
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import hashlib
+import json
+import logging
 import math
+import os
+import re
+import shutil
+import threading
+import time
+import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +91,7 @@ def _try_translate(text: str, api_manager) -> str:
 
 def translate_with_color_codes_v2(text: str, api_manager) -> Optional[str]:
     """分段翻译带 § 或 \\xA7 的文本，只翻纯文本部分，完成后拼回"""
-    from core.utils import has_color_codes, split_text_by_color_codes
+    from core.utils import has_color_codes
 
     if not text or not has_color_codes(text):
         return _try_translate(text, api_manager)
@@ -116,12 +124,8 @@ def translate_with_color_codes_v2(text: str, api_manager) -> Optional[str]:
     return ''.join(result_parts)
 
 
-def _build_string_literal(content: str, quote: str, original_content: str = None) -> str:
-    content = re.sub(r'[\u200e\u200f\u202a-\u202e]', '', content)
-
-    # 总是需要引号，因为我们在处理字符串字面量
-    needs_quotes = True
-
+def _strip_surrounding_quotes(content: str, quote: str) -> str:
+    """去除字符串内容外围的引号"""
     if quote and content:
         while len(content) > 1 and content[0] == quote and content[-1] == quote:
             content = content[1:-1]
@@ -130,57 +134,75 @@ def _build_string_literal(content: str, quote: str, original_content: str = None
                 content = content[1:]
             while content and content[-1] in ('"', "'", '`'):
                 content = content[:-1]
+    return content
+
+
+def _escape_dollar_curly(text: str, placeholders: dict) -> str:
+    """转义 ${ 但跳过占位符中的模板表达式"""
+    result = []
+    i = 0
+    while i < len(text):
+        is_placeholder = False
+        for ph in placeholders:
+            if text[i:].startswith(ph):
+                result.append(placeholders[ph])
+                i += len(ph)
+                is_placeholder = True
+                break
+        if is_placeholder:
+            continue
+        if text[i:i+2] == '${':
+            result.append('\\${')
+            i += 2
+        else:
+            result.append(text[i])
+            i += 1
+    return ''.join(result)
+
+
+def _build_backtick_literal(content: str) -> str:
+    """构建反引号字符串字面量，处理占位符和转义"""
+    placeholder_pattern = re.compile(r'\[\[(\d+)\]\]')
+    placeholders = {}
+
+    def replace_placeholder(match):
+        idx = match.group(1)
+        placeholder = f'__PH_{idx}__'
+        placeholders[placeholder] = f'${{{idx}}}'
+        return placeholder
+
+    content = placeholder_pattern.sub(replace_placeholder, content)
+    content = content.replace('\\', '\\\\')
+    content = content.replace('`', '\\`')
+    content = _escape_dollar_curly(content, placeholders)
+    return f'`{content}`'
+
+
+def _build_double_quote_literal(content: str) -> str:
+    """构建双引号字符串字面量"""
+    content = content.replace('\\', '\\\\').replace('"', '\\"')
+    content = content.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+    return f'"{content}"'
+
+
+def _build_single_quote_literal(content: str) -> str:
+    """构建单引号字符串字面量"""
+    content = content.replace('\\', '\\\\').replace("'", "\\'")
+    content = content.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+    return f"'{content}'"
+
+
+def _build_string_literal(content: str, quote: str, original_content: str = None) -> str:
+    content = re.sub(r'[\u200e\u200f\u202a-\u202e]', '', content)
+
+    content = _strip_surrounding_quotes(content, quote)
 
     if quote == '`':
-        placeholder_pattern = re.compile(r'\[\[(\d+)\]\]')
-        placeholders = {}
-
-        def replace_placeholder(match):
-            idx = match.group(1)
-            placeholder = f'__PH_{idx}__'
-            placeholders[placeholder] = f'${{{idx}}}'
-            return placeholder
-
-        # 先替换占位符
-        content = placeholder_pattern.sub(replace_placeholder, content)
-
-        # 转义（使用占位符格式避免冲突）
-        content = content.replace('\\', '\\\\')
-        content = content.replace('`', '\\`')
-        # 只有不在占位符中的 ${ 才需要转义
-        def escape_dollar_curly(text):
-            result = []
-            i = 0
-            while i < len(text):
-                # 检查是否是占位符开始
-                is_placeholder = False
-                for ph in placeholders:
-                    if text[i:].startswith(ph):
-                        result.append(placeholders[ph])
-                        i += len(ph)
-                        is_placeholder = True
-                        break
-                if is_placeholder:
-                    continue
-                # 检查是否是 ${ (转义)
-                if text[i:i+2] == '${':
-                    result.append('\\${')
-                    i += 2
-                else:
-                    result.append(text[i])
-                    i += 1
-            return ''.join(result)
-
-        content = escape_dollar_curly(content)
-        return f'`{content}`'
+        return _build_backtick_literal(content)
     elif quote == '"':
-        content = content.replace('\\', '\\\\').replace('"', '\\"')
-        content = content.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
-        return f'"{content}"'
+        return _build_double_quote_literal(content)
     elif quote == "'":
-        content = content.replace('\\', '\\\\').replace("'", "\\'")
-        content = content.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
-        return f"'{content}'"
+        return _build_single_quote_literal(content)
     return f'"{content}"'
 
 
@@ -231,39 +253,39 @@ class JSASTExtractor:
     def _parse_js_ast(cls, js_code):
         """使用可用解析器解析 JavaScript AST 并提取字符串"""
         errors = []
-        
+
         # 预处理：将 ES2020 语法转换为 ES6 兼容语法
         preprocessed_code = cls._preprocess_es2020(js_code)
-        
+
         if HAS_ESPRIMA:
             try:
                 return cls._run_esprima_extraction(preprocessed_code)
             except Exception as e:
                 errors.append(f"esprima: {e}")
-        
+
         if HAS_PYJSPARSER:
             try:
                 return cls._run_pyjsparser_extraction(preprocessed_code)
             except Exception as e:
                 errors.append(f"pyjsparser: {e}")
-        
+
         raise RuntimeError(f"所有解析器都失败了: {'; '.join(errors)}")
-    
+
     @classmethod
     def _preprocess_es2020(cls, js_code):
         """预处理 ES2020 语法，转换为兼容语法"""
         # 将可选链 ?. 替换为普通访问 .
         # 注意：这只是为了让解析器能解析，实际替换时会使用原始代码
         result = js_code
-        
+
         # 替换 ?. 为 . （仅用于解析）
         result = re.sub(r'\?\.', '.', result)
-        
+
         # 替换 ?? 为 || （仅用于解析）
         result = re.sub(r'\?\?', '||', result)
-        
+
         return result
-    
+
     @classmethod
     def _run_pyjsparser_extraction(cls, js_code):
         """使用 pyjsparser 提取 JavaScript 字符串（支持 ES6+）"""
@@ -272,9 +294,9 @@ class JSASTExtractor:
             tree = parser.parse(js_code)
         except Exception as e:
             raise RuntimeError(f"pyjsparser 解析失败: {e}")
-        
+
         raw = []
-        
+
         def walk(node):
             if node is None:
                 return
@@ -284,7 +306,7 @@ class JSASTExtractor:
                 return
             if not isinstance(node, dict):
                 return
-            
+
             node_type = node.get('type')
             if node_type == 'Literal':
                 value = node.get('value')
@@ -310,7 +332,7 @@ class JSASTExtractor:
                         'quote': '`',
                         'context': ''
                     })
-            
+
             for key, value in node.items():
                 if key in ('type', 'loc', 'range', 'start', 'end'):
                     continue
@@ -318,109 +340,143 @@ class JSASTExtractor:
                     walk(value)
                 elif isinstance(value, dict):
                     walk(value)
-        
+
         walk(tree)
         return raw
-    
+
+    @classmethod
+    def _handle_esprima_parse_error(cls, error_msg: str, js_code: str):
+        """处理 esprima 解析错误，转换为有意义的 RuntimeError"""
+        if 'Unexpected token' in error_msg:
+            match = re.search(r'line (\d+)', error_msg)
+            line_info = f"第{match.group(1)}行" if match else "未知行"
+            if '?.' in js_code or '??' in js_code:
+                raise RuntimeError(f"JavaScript 语法错误 ({line_info}): 文件使用了 ES2020 新特性（可选链 ?. 或空值合并 ??），当前解析器不支持。请使用功能10批量处理，或手动翻译此文件。")
+            raise RuntimeError(f"JavaScript 语法错误 ({line_info}): {error_msg}")
+        raise RuntimeError(f"AST 解析失败: {error_msg}")
+
+    @classmethod
+    def _extract_esprima_literal(cls, node) -> Optional[dict]:
+        """从 esprima Literal 节点提取字符串信息"""
+        value = getattr(node, 'value', None)
+        if not isinstance(value, str):
+            return None
+        return {
+            'text': value,
+            'raw': getattr(node, 'raw', ''),
+            'range': getattr(node, 'range', None),
+            'quote': getattr(node, 'raw', '"')[0] if getattr(node, 'raw', '') else '"',
+            'context': ''
+        }
+
+    @classmethod
+    def _extract_esprima_template(cls, node) -> Optional[dict]:
+        """从 esprima TemplateLiteral 节点提取字符串信息"""
+        quasis = getattr(node, 'quasis', [])
+        expressions = getattr(node, 'expressions', [])
+        if not quasis or len(expressions) != 0:
+            return None
+        quasi = quasis[0]
+        value_obj = getattr(quasi, 'value', None)
+        if not value_obj:
+            return None
+        raw_value = getattr(value_obj, 'raw', '') or ''
+        cooked = getattr(value_obj, 'cooked', '') or raw_value
+        return {
+            'text': cooked,
+            'raw': raw_value,
+            'range': getattr(node, 'range', None),
+            'quote': '`',
+            'context': ''
+        }
+
+    @classmethod
+    def _walk_esprima_node(cls, node, raw: list):
+        """递归遍历 esprima AST 节点，提取字符串"""
+        if node is None:
+            return
+
+        if isinstance(node, list):
+            for item in node:
+                cls._walk_esprima_node(item, raw)
+            return
+
+        node_type = getattr(node, 'type', None)
+        if node_type is None:
+            return
+
+        if node_type == 'Literal':
+            result = cls._extract_esprima_literal(node)
+            if result:
+                raw.append(result)
+            return
+
+        if node_type == 'TemplateLiteral':
+            result = cls._extract_esprima_template(node)
+            if result:
+                raw.append(result)
+            return
+
+        if hasattr(node, '__dict__'):
+            for key, value in node.__dict__.items():
+                if key in ('type', 'loc', 'range', 'start', 'end'):
+                    continue
+                if isinstance(value, list):
+                    cls._walk_esprima_node(value, raw)
+                elif hasattr(value, 'type'):
+                    cls._walk_esprima_node(value, raw)
+
     @classmethod
     def _run_esprima_extraction(cls, js_code):
         """使用 esprima 提取 JavaScript 字符串"""
         try:
             tree = esprima.parseModule(js_code, {'range': True, 'tolerant': True, 'loc': True})
         except esprima.Error as e:
-            error_msg = str(e)
-            if 'Unexpected token' in error_msg:
-                match = re.search(r'line (\d+)', error_msg)
-                line_info = f"第{match.group(1)}行" if match else "未知行"
-                if '?.' in js_code or '??' in js_code:
-                    raise RuntimeError(f"JavaScript 语法错误 ({line_info}): 文件使用了 ES2020 新特性（可选链 ?. 或空值合并 ??），当前解析器不支持。请使用功能10批量处理，或手动翻译此文件。")
-                raise RuntimeError(f"JavaScript 语法错误 ({line_info}): {error_msg}")
-            raise RuntimeError(f"AST 解析失败: {error_msg}")
+            cls._handle_esprima_parse_error(str(e), js_code)
         except Exception as e:
             raise RuntimeError(f"AST parse error: {e}")
 
         raw = []
-
-        def walk(node):
-            if node is None:
-                return
-
-            if isinstance(node, list):
-                for item in node:
-                    walk(item)
-                return
-
-            node_type = getattr(node, 'type', None)
-            if node_type is None:
-                return
-
-            if node_type == 'Literal':
-                value = getattr(node, 'value', None)
-                if isinstance(value, str):
-                    raw.append({
-                        'text': value,
-                        'raw': getattr(node, 'raw', ''),
-                        'range': getattr(node, 'range', None),
-                        'quote': getattr(node, 'raw', '"')[0] if getattr(node, 'raw', '') else '"',
-                        'context': ''
-                    })
-                return
-
-            if node_type == 'TemplateLiteral':
-                quasis = getattr(node, 'quasis', [])
-                expressions = getattr(node, 'expressions', [])
-                if quasis and len(expressions) == 0:
-                    quasi = quasis[0]
-                    value_obj = getattr(quasi, 'value', None)
-                    if value_obj:
-                        raw_value = getattr(value_obj, 'raw', '') or ''
-                        cooked = getattr(value_obj, 'cooked', '') or raw_value
-                        raw.append({
-                            'text': cooked,
-                            'raw': raw_value,
-                            'range': getattr(node, 'range', None),
-                            'quote': '`',
-                            'context': ''
-                        })
-                return
-
-            if hasattr(node, '__dict__'):
-                for key, value in node.__dict__.items():
-                    if key in ('type', 'loc', 'range', 'start', 'end'):
-                        continue
-                    if isinstance(value, list):
-                        walk(value)
-                    elif hasattr(value, 'type'):
-                        walk(value)
-
-        walk(tree.body)
+        cls._walk_esprima_node(tree.body, raw)
         return raw
 
     @classmethod
     def _should_skip(cls, text, code, start):
         s = text.strip()
-        if not s or s in ('\n','\t',' '): return True
+        if not s or s in ('\n', '\t', ' '):
+            return True
         lo = s.lower()
         for p in cls._SKIP_PATH_PREFIXES:
-            if lo.startswith(p.lower()): return True
-        if len(s)<=3 and lo in cls._SKIP_SHORT_WORDS: return True
-        if lo in ('form','function','type','g'): return True
-        if s == '§': return True
-        clean = re.sub(r'§[0-9a-zA-Z]','', s)
-        clean = clean.replace('\\n','').replace('\\r','').replace('\\t','')
-        if not clean.strip(): return True
-        if cls._detect_context(code, start) == 'property_key': return True
-        if s.isdigit(): return True
-        if re.match(r'^[\W_]+$', s): return True
+            if lo.startswith(p.lower()):
+                return True
+        if len(s) <= 3 and lo in cls._SKIP_SHORT_WORDS:
+            return True
+        if lo in ('form', 'function', 'type', 'g'):
+            return True
+        if s == '§':
+            return True
+        clean = re.sub(r'§[0-9a-zA-Z]', '', s)
+        clean = clean.replace('\\n', '').replace('\\r', '').replace('\\t', '')
+        if not clean.strip():
+            return True
+        if cls._detect_context(code, start) == 'property_key':
+            return True
+        if s.isdigit():
+            return True
+        if re.match(r'^[\W_]+$', s):
+            return True
         return False
 
     @classmethod
     def _detect_context(cls, code, quote_pos):
-        pre = code[max(0,quote_pos-50):quote_pos]
+        pre = code[max(0, quote_pos-50):quote_pos]
         if re.search(r'[\{,]\s*$', pre):
-            if re.match(r'"[^"]*"\s*:', code[quote_pos:]): return 'property_key'
-        if re.search(r'[\.\[]$', pre): return 'property_name'
-        if re.search(r'\(\s*$', pre): return 'function_argument'
+            if re.match(r'"[^"]*"\s*:', code[quote_pos:]):
+                return 'property_key'
+        if re.search(r'[\.\[]$', pre):
+            return 'property_name'
+        if re.search(r'\(\s*$', pre):
+            return 'function_argument'
         return ''
 
     @classmethod
@@ -446,7 +502,6 @@ class JSASTExtractor:
 
 def judge_strings_with_ai(strings_no_color, api_manager, log_callback=None, progress_callback=None, batch_size=50):
     from api.translation_prompts import JS_AST_JUDGE_PROMPT
-    import json
 
     if not strings_no_color:
         return {}
@@ -510,19 +565,25 @@ def replace_strings_in_code(js_code, strings, trans_map):
         'action','callback','handler','listener'
     }
     def unsafe(orig, trans, ctx):
-        if ctx == 'property_key': return True
-        if len(orig)<=3 and orig.lower() in COMMON_KEYS: return True
-        if trans and ('{' in trans or '}' in trans or ';' in trans): return True
+        if ctx == 'property_key':
+            return True
+        if len(orig) <= 3 and orig.lower() in COMMON_KEYS:
+            return True
+        if trans and ('{' in trans or '}' in trans or ';' in trans):
+            return True
         return False
 
     replacements = []
     for s in strings:
         info = trans_map.get(s['id'])
-        if not info or not info.get('translate'): continue
+        if not info or not info.get('translate'):
+            continue
         trans = info.get('translation')
-        if not trans: continue
-        ctx = s.get('context','')
-        if unsafe(s.get('original_text', s['text']), trans, ctx): continue
+        if not trans:
+            continue
+        ctx = s.get('context', '')
+        if unsafe(s.get('original_text', s['text']), trans, ctx):
+            continue
         start, end = s['range']
         quote = s.get('quote', '"')
         original_content = js_code[start:end]
@@ -547,7 +608,8 @@ class ScriptTranslation:
 
     def scan_js_files(self, bp_path, log_callback=None):
         folder = os.path.join(bp_path, "scripts")
-        if not os.path.exists(folder): return []
+        if not os.path.exists(folder):
+            return []
         files = []
         for root,_,fnames in os.walk(folder):
             for f in fnames:
@@ -559,9 +621,11 @@ class ScriptTranslation:
                                     progress_callback=None, log_callback=None,
                                     clear_cache_before=True):
         def log(msg):
-            if log_callback: log_callback(msg)
+            if log_callback:
+                log_callback(msg)
         def progress(v, r=0, t=0):
-            if progress_callback: progress_callback(v, r, t)
+            if progress_callback:
+                progress_callback(v, r, t)
 
         if clear_cache_before:
             JSASTExtractor.clear_cache()
@@ -570,16 +634,7 @@ class ScriptTranslation:
             return {'success': True, 'message': '没有需要处理的文件',
                     'translated_files': [], 'backup_files': [], 'failed_files': []}
 
-        to_process = []
-        for f in js_files:
-            try:
-                with open(f, 'r', encoding='utf-8') as fp:
-                    content = fp.read()
-                if mode == 1 and '§' not in content: continue
-                to_process.append(f)
-            except Exception as e:
-                log(f"读取失败 {f}: {e}")
-
+        to_process = self._filter_js_files(js_files, mode, log)
         log(f"需处理 {len(to_process)} 个文件")
         progress(0.1)
 
@@ -598,56 +653,9 @@ class ScriptTranslation:
                     unchanged_files.append(js_file)
                     continue
 
-                color_strs = [s for s in strings if '§' in s['text']]
-                no_color = [s for s in strings if '§' not in s['text']]
-                trans_map = {}
+                trans_map = self._translate_strings(strings, mode, log, progress)
+                total_tr += sum(1 for v in trans_map.values() if v.get('translate'))
 
-                # 1. 直接翻译带 § 的字符串（多线程并行）
-                if color_strs and self.api_manager:
-                    log(f"  🎨 翻译 {len(color_strs)} 个带颜色代码的字符串")
-
-                    available_apis = self.api_manager.get_available_apis()
-                    max_threads_per_api = 3
-                    max_workers = len(available_apis) * max_threads_per_api if available_apis else 1
-                    
-                    log(f"     线程数: {max_workers}, 可用API: {len(available_apis)}")
-
-                    def translate_single_string(s_item):
-                        try:
-                            translated = translate_with_color_codes_v2(s_item['text'], self.api_manager)
-                            if translated and translated != s_item['text']:
-                                return s_item['id'], {
-                                    'translate': True,
-                                    'translation': translated,
-                                    'original': s_item['text'],
-                                    'context': s_item.get('context', '')
-                                }
-                        except Exception as e:
-                            logger.warning(f"翻译失败 [{s_item['id']}]: {str(e)[:50]}")
-                        return None, None
-
-                    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                        future_to_item = {
-                            executor.submit(translate_single_string, s): s
-                            for s in color_strs
-                        }
-                        for future in as_completed(future_to_item):
-                            item_id, result = future.result()
-                            if item_id and result:
-                                trans_map[item_id] = result
-                                total_tr += 1
-
-                # 2. 模式2：AI 判断无 § 字符串
-                if mode == 2 and no_color and self.api_manager:
-                    log(f"  🤖 AI 判断 {len(no_color)} 个无颜色字符串")
-                    ai_map = judge_strings_with_ai(
-                        no_color, self.api_manager,
-                        log_callback=log, progress_callback=progress, batch_size=50
-                    )
-                    trans_map.update(ai_map)
-                    total_tr += sum(1 for v in ai_map.values() if v['translate'])
-
-                # 3. 替换
                 new_code = replace_strings_in_code(original, strings, trans_map)
                 if new_code == original:
                     unchanged_files.append(js_file)
@@ -682,12 +690,81 @@ class ScriptTranslation:
             'total_translated_count': total_tr
         }
 
+    def _filter_js_files(self, js_files, mode, log):
+        to_process = []
+        for f in js_files:
+            try:
+                with open(f, 'r', encoding='utf-8') as fp:
+                    content = fp.read()
+                if mode == 1 and '§' not in content:
+                    continue
+                to_process.append(f)
+            except Exception as e:
+                log(f"读取失败 {f}: {e}")
+        return to_process
+
+    def _translate_strings(self, strings, mode, log, progress):
+        color_strs = [s for s in strings if '§' in s['text']]
+        no_color = [s for s in strings if '§' not in s['text']]
+        trans_map = {}
+
+        if color_strs and self.api_manager:
+            log(f"  🎨 翻译 {len(color_strs)} 个带颜色代码的字符串")
+            color_map = self._translate_color_strings(color_strs, log)
+            trans_map.update(color_map)
+
+        if mode == 2 and no_color and self.api_manager:
+            log(f"  🤖 AI 判断 {len(no_color)} 个无颜色字符串")
+            ai_map = judge_strings_with_ai(
+                no_color, self.api_manager,
+                log_callback=log, progress_callback=progress, batch_size=50
+            )
+            trans_map.update(ai_map)
+
+        return trans_map
+
+    def _translate_color_strings(self, color_strs, log):
+        available_apis = self.api_manager.get_available_apis()
+        max_threads_per_api = 3
+        max_workers = len(available_apis) * max_threads_per_api if available_apis else 1
+        log(f"     线程数: {max_workers}, 可用API: {len(available_apis)}")
+
+        trans_map = {}
+
+        def translate_single_string(s_item):
+            try:
+                translated = translate_with_color_codes_v2(s_item['text'], self.api_manager)
+                if translated and translated != s_item['text']:
+                    return s_item['id'], {
+                        'translate': True,
+                        'translation': translated,
+                        'original': s_item['text'],
+                        'context': s_item.get('context', '')
+                    }
+            except Exception as e:
+                logger.warning(f"翻译失败 [{s_item['id']}]: {str(e)[:50]}")
+            return None, None
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_item = {
+                executor.submit(translate_single_string, s): s
+                for s in color_strs
+            }
+            for future in as_completed(future_to_item):
+                item_id, result = future.result()
+                if item_id and result:
+                    trans_map[item_id] = result
+
+        return trans_map
+
     def analyze_js_files_for_preview(self, js_files, mode=2,
                                      progress_callback=None, log_callback=None):
         def log(msg):
-            if log_callback: log_callback(msg)
-        def progress(v,r=0,t=0):
-            if progress_callback: progress_callback(v,r,t)
+            if log_callback:
+                log_callback(msg)
+        def progress(v, r=0, t=0):
+            if progress_callback:
+                progress_callback(v, r, t)
         if not js_files:
             return {'success':True, 'file_analyses':[], 'summary':{}}
         log(f"🔍 分析 {len(js_files)} 个文件")

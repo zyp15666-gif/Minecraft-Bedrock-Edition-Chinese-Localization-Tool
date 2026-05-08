@@ -7,8 +7,9 @@ UI主题和样式管理器
 支持高对比度模式（跟随系统设置）。
 """
 
+from typing import Any, Dict
+
 import flet as ft
-from typing import Dict, Any, Optional
 
 try:
     from ui.accessibility import detect_high_contrast_mode, get_system_text_scale

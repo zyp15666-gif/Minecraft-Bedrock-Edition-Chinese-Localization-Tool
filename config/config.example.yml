@@ -25,6 +25,9 @@ basic:
   local_model_use_prompt: true  # 本地模型是否使用提示词
   use_multi_api_validation: false  # 是否启用多重API验证（消耗更多Token）
   local_first_fallback: true  # 本地优先 + 质量降级（本地模型质量差时自动切换云端）
+  # 性能预设：填写后会在启动加载配置时覆盖 max_workers / batch_size / max_threads_per_api / update_batch_size
+  # 可选空字符串（不应用）、small、balanced、large
+  performance_preset: ""
 
 # DeepSeek API配置
 deepseek:

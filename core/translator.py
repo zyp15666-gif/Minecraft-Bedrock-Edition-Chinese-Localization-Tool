@@ -4,16 +4,19 @@
 翻译核心模块（仅使用多线程模式）
 """
 
-import time
+import asyncio
 import math
 import re
 import threading
-import asyncio
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 from tqdm import tqdm
-from typing import Dict, Any, List, Tuple, Callable, Optional
+
 from core.log_manager import get_logger
 from core.utils import has_color_codes, is_lang_key_format
+
 logger = get_logger(__name__)
 
 
@@ -112,30 +115,120 @@ class Translator:
         else:
             print(f"耗时: {elapsed:.2f} 秒 | 平均速度: N/A")
 
+    def _fix_escape_sequences(self, text: str) -> str:
+        """修复文本中的转义序列"""
+        if '\\n' in text:
+            text = text.replace('\\n', '\n')
+        if '\\t' in text:
+            text = text.replace('\\t', '\t')
+        return text
+
+    def _check_term_match(self, text: str) -> Optional[str]:
+        """检查术语匹配（原始和清洗两种方式）
+
+        Args:
+            text: 待检查文本
+
+        Returns:
+            匹配到的术语翻译，无匹配返回None
+        """
+        if not self.api_manager or not self.api_manager.term_service:
+            return None
+
+        term_translation = self.api_manager.term_service.get_translation_original(text)
+        if term_translation:
+            logger.debug(f"术语命中-原始: '{text[:30]}...' -> '{term_translation[:30]}...'")
+            return term_translation
+
+        term_translation = self.api_manager.term_service.get_translation_clean(text)
+        if term_translation:
+            logger.debug(f"术语命中-清洗: '{text[:30]}...' -> '{term_translation[:30]}...'")
+            return term_translation
+
+        return None
+
+    def _translate_with_local_api(self, local_api, original_fixed, cloud_apis):
+        """使用本地API翻译，质量不合格时降级到云端
+
+        Args:
+            local_api: 本地API配置
+            original_fixed: 待翻译文本
+            cloud_apis: 云端API列表
+
+        Returns:
+            翻译结果
+        """
+        if self._local_api_consecutive_good >= self._local_api_trust_threshold:
+            try:
+                translated = self.api_manager.translate_with_api(local_api, original_fixed)
+            except Exception as e:
+                logger.warning(f"本地API翻译失败: {str(e)[:50]}")
+                translated = None
+                self._local_api_consecutive_good = 0
+            if translated:
+                return translated
+            return original_fixed
+
+        try:
+            translated = self.api_manager.translate_with_api(local_api, original_fixed)
+        except Exception as e:
+            logger.warning(f"本地API翻译失败: {str(e)[:50]}")
+            translated = None
+
+        if translated and self._is_poor_quality(original_fixed, translated):
+            logger.info("[降级] 本地模型翻译质量不合格，启用云端多重验证")
+            self._local_api_consecutive_good = 0
+            if cloud_apis:
+                translated = self.api_manager.multi_api_translate(original_fixed)
+        elif translated:
+            self._local_api_consecutive_good += 1
+        return translated if translated else original_fixed
+
+    def _translate_with_multi_api(self, original_fixed):
+        """使用多重API验证翻译
+
+        Args:
+            original_fixed: 待翻译文本
+
+        Returns:
+            翻译结果
+        """
+        try:
+            translated = self.api_manager.multi_api_translate(original_fixed)
+        except Exception as e:
+            logger.warning(f"多重验证翻译失败: {str(e)[:50]}")
+            translated = None
+        return translated if translated else original_fixed
+
+    def _translate_with_single_api(self, original_fixed):
+        """使用单一API翻译
+
+        Args:
+            original_fixed: 待翻译文本
+
+        Returns:
+            翻译结果
+        """
+        try:
+            translated = self.api_manager.translate_text(original_fixed)
+            return translated if translated else original_fixed
+        except Exception as e:
+            logger.warning(f"API翻译失败: {str(e)[:50]}")
+            return original_fixed
+
     # ──────────── 单条翻译 ────────────
 
     def translate_single_item(self, key_original_tuple: tuple) -> tuple:
         key, original, retry_count, keys_set = key_original_tuple
 
-        original_fixed = original
-        if '\\n' in original_fixed:
-            original_fixed = original_fixed.replace('\\n', '\n')
-        if '\\t' in original_fixed:
-            original_fixed = original_fixed.replace('\\t', '\t')
+        original_fixed = self._fix_escape_sequences(original)
 
         if original_fixed in keys_set and is_lang_key_format(original_fixed):
             return key, original_fixed
 
-        if self.api_manager and self.api_manager.term_service:
-            term_translation = self.api_manager.term_service.get_translation_original(original_fixed)
-            if term_translation:
-                logger.debug(f"术语命中-原始: '{original[:30]}...' -> '{term_translation[:30]}...'")
-                return key, term_translation
-
-            term_translation = self.api_manager.term_service.get_translation_clean(original_fixed)
-            if term_translation:
-                logger.debug(f"术语命中-清洗: '{original[:30]}...' -> '{term_translation[:30]}...'")
-                return key, term_translation
+        term_translation = self._check_term_match(original_fixed)
+        if term_translation:
+            return key, term_translation
 
         available_apis = self.api_manager.get_available_apis()
         if not available_apis:
@@ -148,48 +241,14 @@ class Translator:
         fallback_enabled = self.config.get('basic', {}).get('local_first_fallback', True)
 
         if local_apis and fallback_enabled:
-            local_api = local_apis[0]
-
-            if self._local_api_consecutive_good >= self._local_api_trust_threshold:
-                try:
-                    translated = self.api_manager.translate_with_api(local_api, original_fixed)
-                except Exception as e:
-                    logger.warning(f"本地API翻译失败: {str(e)[:50]}")
-                    translated = None
-                    self._local_api_consecutive_good = 0
-                if translated:
-                    return key, translated
-                return key, original_fixed
-
-            try:
-                translated = self.api_manager.translate_with_api(local_api, original_fixed)
-            except Exception as e:
-                logger.warning(f"本地API翻译失败: {str(e)[:50]}")
-                translated = None
-
-            if translated and self._is_poor_quality(original_fixed, translated):
-                logger.info(f"[降级] 本地模型翻译质量不合格，启用云端多重验证")
-                self._local_api_consecutive_good = 0
-                if cloud_apis:
-                    translated = self.api_manager.multi_api_translate(original_fixed)
-            elif translated:
-                self._local_api_consecutive_good += 1
-            return key, translated if translated else original_fixed
-
+            translated = self._translate_with_local_api(local_apis[0], original_fixed, cloud_apis)
+            return key, translated
         elif use_multi and len(available_apis) >= 2:
-            try:
-                translated = self.api_manager.multi_api_translate(original_fixed)
-            except Exception as e:
-                logger.warning(f"多重验证翻译失败: {str(e)[:50]}")
-                translated = None
-            return key, translated if translated else original_fixed
+            translated = self._translate_with_multi_api(original_fixed)
+            return key, translated
         else:
-            try:
-                translated = self.api_manager.translate_text(original_fixed)
-                return key, translated if translated else original_fixed
-            except Exception as e:
-                logger.warning(f"API翻译失败: {str(e)[:50]}")
-                return key, original_fixed
+            translated = self._translate_with_single_api(original_fixed)
+            return key, translated
 
     # ──────────── 多线程翻译 ────────────
 
@@ -199,7 +258,7 @@ class Translator:
         max_threads_per_api = self.config.get('basic', {}).get('max_threads_per_api', 3)
         max_workers = available_api_count * max_threads_per_api
 
-        self._log_message(log_callback, f"\n启动多线程翻译")
+        self._log_message(log_callback, "\n启动多线程翻译")
         self._log_message(log_callback, f"   线程数: {max_workers}")
         self._log_message(log_callback, f"   可用API: {available_api_count}")
         self._log_message(log_callback, f"   待翻译条目: {len(entries)}")
@@ -308,7 +367,7 @@ class Translator:
 
     def translate_dict_single(self, entries: Dict[str, str], progress_callback=None, log_callback=None) -> Dict[str, str]:
         """单线程翻译 - 支持分批处理避免API速率限制"""
-        self._log_message(log_callback, f"\n开始单线程翻译")
+        self._log_message(log_callback, "\n开始单线程翻译")
         self._log_message(log_callback, f"   可用API: {len(self.api_manager.get_available_apis())}")
         self._log_message(log_callback, f"   待翻译条目: {len(entries)}")
         self._log_message(log_callback, f"   批次大小: {self.batch_size}")
@@ -376,7 +435,7 @@ class Translator:
         if not entries:
             return {}
 
-        available_api_count = len(self.api_manager.available_apis)
+        len(self.api_manager.available_apis)
         entry_count = len(entries)
 
         # 根据条目数量动态选择翻译模式
@@ -406,11 +465,45 @@ class Translator:
         if not entries:
             return {}
 
-        self._log_message(log_callback, f"\n🚀 启动传统多线程翻译")
+        self._log_message(log_callback, "\n🚀 启动传统多线程翻译")
         self._log_message(log_callback, f"   待翻译条目: {len(entries)}")
 
         translated = self.translate_dict_parallel(entries, progress_callback, log_callback)
         return translated
+
+    async def _translate_single_async(self, key: str, original: str, keys_set: set) -> Tuple[str, str]:
+        """异步翻译单个条目
+
+        Args:
+            key: 条目键
+            original: 原始文本
+            keys_set: 键集合（用于语言键格式检测）
+
+        Returns:
+            (key, translated_text) 元组
+        """
+        original_fixed = self._fix_escape_sequences(original)
+
+        if original_fixed in keys_set and is_lang_key_format(original_fixed):
+            return key, original_fixed
+
+        term_translation = self._check_term_match(original_fixed)
+        if term_translation:
+            return key, term_translation
+
+        available_apis = self.api_manager.get_available_apis()
+        if not available_apis:
+            return key, original_fixed
+
+        api_config = available_apis[0]
+        try:
+            translated_text = await self.api_manager.async_api_client.translate(
+                api_config, original_fixed
+            )
+            return key, translated_text if translated_text else original_fixed
+        except Exception as e:
+            logger.error(f"异步翻译失败 [{key}]: {e}")
+            return key, original_fixed
 
     async def translate_entries_async(self, entries: Dict[str, str], progress_callback=None, log_callback=None) -> Dict[str, str]:
         """异步批量翻译（使用asyncio.gather替代ThreadPoolExecutor）
@@ -436,7 +529,7 @@ class Translator:
             self._log_message(log_callback, "⚠️ 异步API客户端不可用，回退到同步模式")
             return self.translate_entries(entries, progress_callback, log_callback)
 
-        self._log_message(log_callback, f"\n🚀 启动异步并发翻译")
+        self._log_message(log_callback, "\n🚀 启动异步并发翻译")
         self._log_message(log_callback, f"   待翻译条目: {len(entries)}")
 
         start = time.time()
@@ -447,42 +540,8 @@ class Translator:
         if progress_callback:
             progress_callback(0.0, total, 0)
 
-        async def translate_single_async(key: str, original: str) -> Tuple[str, str]:
-            """异步翻译单个条目"""
-            original_fixed = original
-            if '\\n' in original_fixed:
-                original_fixed = original_fixed.replace('\\n', '\n')
-            if '\\t' in original_fixed:
-                original_fixed = original_fixed.replace('\\t', '\t')
+        tasks = [self._translate_single_async(key, value, keys_set) for key, value in entries.items()]
 
-            if original_fixed in keys_set and is_lang_key_format(original_fixed):
-                return key, original_fixed
-
-            if self.api_manager and self.api_manager.term_service:
-                term_translation = self.api_manager.term_service.get_translation_original(original_fixed)
-                if term_translation:
-                    return key, term_translation
-
-                term_translation = self.api_manager.term_service.get_translation_clean(original_fixed)
-                if term_translation:
-                    return key, term_translation
-
-            available_apis = self.api_manager.get_available_apis()
-            if not available_apis:
-                return key, original_fixed
-
-            api_config = available_apis[0]
-            try:
-                translated_text = await self.api_manager.async_api_client.translate(
-                    api_config, original_fixed
-                )
-                return key, translated_text if translated_text else original_fixed
-            except Exception as e:
-                logger.error(f"异步翻译失败 [{key}]: {e}")
-                return key, original_fixed
-
-        tasks = [translate_single_async(key, value) for key, value in entries.items()]
-        
         completed = 0
         update_interval = self.config.get("basic", {}).get("update_interval", 0.3)
         last_update_time = time.time()
@@ -530,7 +589,7 @@ class Translator:
 
         return False
 
-    def _check_translation_quality(self, original_entries: Dict[str, str], 
+    def _check_translation_quality(self, original_entries: Dict[str, str],
                                    translated_entries: Dict[str, str],
                                    log_callback=None) -> Dict[str, Any]:
         """

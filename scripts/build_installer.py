@@ -25,11 +25,10 @@
     - 支持一键编译和完整构建
 """
 
-import os
-import sys
-import shutil
-import subprocess
 import argparse
+import os
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -136,7 +135,7 @@ def _read_version(project_root: Path) -> str:
         print(f"   警告：从 config.yml 读取版本失败: {e}")
 
     # 默认版本
-    print(f"   使用默认版本: 1.0.0")
+    print("   使用默认版本: 1.0.0")
     return "1.0.0"
 
 
@@ -183,7 +182,7 @@ def _generate_nsis_script(project_root: Path, dist_dir: Path,
     files = []
 
     if exe_file.exists():
-        files.append(f'  File "${{DIST_DIR}}\\MinecraftBedrockLocalizer.exe"')
+        files.append('  File "${DIST_DIR}\\MinecraftBedrockLocalizer.exe"')
     else:
         print(f"警告：主程序 {exe_file} 不存在，跳过")
 
@@ -239,17 +238,54 @@ InstallDir "$LOCALAPPDATA\\MinecraftBedrockLocalizer"
 !insertmacro MUI_UNPAGE_FINISH
 
 !insertmacro MUI_LANGUAGE "SimpChinese"
+!insertmacro MUI_LANGUAGE "English"
 
 ; 静默安装支持
 SilentInstall silent
 SilentUninstall silent
 
 Function .onInit
-  ; 检查是否静默安装
+  ; 检查 WebView2 运行时
   ${{If}} ${{Silent}}
     SetSilent silent
   ${{Else}}
     SetSilent normal
+  ${{EndIf}}
+
+  ; WebView2 注册表检测
+  ClearErrors
+  ReadRegStr $0 HKLM "SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}}" "pv"
+  ${{If}} ${{Errors}}
+    ClearErrors
+    ReadRegStr $0 HKLM "SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\{{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}}" "pv"
+  ${{EndIf}}
+
+  ${{If}} ${{Errors}}
+    ; WebView2 未安装，提示用户
+    MessageBox MB_YESNO|MB_ICONEXCLAMATION \
+      "此应用需要 Microsoft Edge WebView2 运行时。$\n$\n\
+      检测到系统未安装 WebView2。$\n$\n\
+      点击「是」在安装完成后自动打开 WebView2 下载页面，$\n\
+      点击「否」继续安装（应用可能无法正常启动）。$\n$\n\
+      WebView2 is required. Click Yes to open download page after installation." \
+      /SD IDYES IDYES ContinueInstall IDNO SkipWebView2
+
+    ContinueInstall:
+      ; 设置标记，安装完成后打开下载页面
+      SetRegView 64
+      WriteRegStr HKCU "${{PRODUCT_REG_KEY}}" "NeedWebView2" "1"
+      SetRegView default
+      Goto DoneWebView2Check
+
+    SkipWebView2:
+      SetRegView 64
+      WriteRegStr HKCU "${{PRODUCT_REG_KEY}}" "NeedWebView2" "0"
+      SetRegView default
+
+    DoneWebView2Check:
+  ${{Else}}
+    ; WebView2 已安装
+    DetailPrint "WebView2 Runtime detected: $0"
   ${{EndIf}}
 FunctionEnd
 
@@ -280,6 +316,19 @@ Section "Install"
   ; 保存安装信息
   WriteRegStr HKCU "${{PRODUCT_REG_KEY}}" "InstallPath" "$INSTDIR"
   WriteRegStr HKCU "${{PRODUCT_REG_KEY}}" "Version" "${{PRODUCT_VERSION}}"
+
+  ; 检查是否需要打开 WebView2 下载页面
+  SetRegView 64
+  ReadRegStr $1 HKCU "${{PRODUCT_REG_KEY}}" "NeedWebView2"
+  SetRegView default
+  ${{If}} $1 == "1"
+    DetailPrint "Opening WebView2 download page..."
+    ExecShell "open" "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+    ; 清理标记
+    SetRegView 64
+    DeleteRegValue HKCU "${{PRODUCT_REG_KEY}}" "NeedWebView2"
+    SetRegView default
+  ${{EndIf}}
 SectionEnd
 
 ; 卸载段
@@ -301,7 +350,7 @@ Section "Uninstall"
   RMDir "$INSTDIR"
 
   ; 询问是否删除用户数据
-  MessageBox MB_YESNO "是否删除用户配置和缓存数据？$\n$\n包含：翻译缓存、配置文件、备份等。$\n$\n选择"否"将保留这些数据，下次安装时可继续使用。" IDYES DeleteUserData IDNO KeepUserData
+  MessageBox MB_YESNO "是否删除用户配置和缓存数据？$\n$\n包含：翻译缓存、配置文件、备份等。$\n$\n选择"否"将保留这些数据，下次安装时可继续使用。$\n$\nDelete user data? Select No to keep for next install." IDYES DeleteUserData IDNO KeepUserData
 
 DeleteUserData:
   ; 删除 Documents 下的配置目录
@@ -387,7 +436,7 @@ def _compile_nsis_script(nsi_file: Path, project_root: Path) -> int:
         print(f"❌ NSIS 脚本不存在: {nsi_file}")
         return 1
 
-    print(f"\n🔨 编译 NSIS 脚本...")
+    print("\n🔨 编译 NSIS 脚本...")
     print(f"   脚本文件: {nsi_file}")
 
     try:
@@ -433,7 +482,7 @@ def generate_nsis_script() -> int:
 
     # 查找PyInstaller输出
     dist_dir, internal_dir, exe_file = _find_pyinstaller_output(project_root)
-    print(f"\n📂 检查构建输出...")
+    print("\n📂 检查构建输出...")
     print(f"   dist目录: {dist_dir}")
     print(f"   主程序: {exe_file}")
 
@@ -464,17 +513,17 @@ def generate_nsis_script() -> int:
     print("构建完成！")
     print("=" * 60)
 
-    print(f"\n📋 下一步操作:")
-    print(f"   1. 如果需要编译安装程序，请安装 NSIS")
+    print("\n📋 下一步操作:")
+    print("   1. 如果需要编译安装程序，请安装 NSIS")
     print(f"   2. 运行: makensis {output_file}")
     print(f"   3. 安装程序将输出到: dist\\MinecraftBedrockLocalizerSetup_v{version}.exe")
 
     # 检查makensis
     if _check_makensis_installed():
-        print(f"\n✅ 检测到 NSIS，是否现在编译？")
+        print("\n✅ 检测到 NSIS，是否现在编译？")
         print(f"   运行: makensis {output_file}")
     else:
-        print(f"\n⚠️  未检测到 NSIS，请手动安装 NSIS 后运行编译命令")
+        print("\n⚠️  未检测到 NSIS，请手动安装 NSIS 后运行编译命令")
 
     return 0
 

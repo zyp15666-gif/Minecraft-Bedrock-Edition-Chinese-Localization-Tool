@@ -10,12 +10,12 @@
 输出的基准结果可提交到仓库，用于检测性能回归。
 """
 
-import time
 import json
 import os
+import shutil
 import sys
 import tempfile
-import shutil
+import time
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -124,7 +124,7 @@ def benchmark_lang_file_generation():
 
 def benchmark_color_code_operations():
     """颜色代码处理速度基准测试"""
-    from core.utils import split_by_color_codes, has_color_codes, normalize_game_text
+    from core.utils import has_color_codes, normalize_game_text, split_by_color_codes
 
     texts = [
         "§6Hello §aWorld§f",

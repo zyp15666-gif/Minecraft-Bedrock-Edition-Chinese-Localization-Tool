@@ -9,8 +9,8 @@
 - 统一的进度和日志回调处理
 """
 
-import threading
-from typing import Callable, Dict, Any, Optional
+from typing import Any, Callable, Dict, Optional
+
 import flet as ft
 
 

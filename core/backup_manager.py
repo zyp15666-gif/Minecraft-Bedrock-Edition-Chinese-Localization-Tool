@@ -8,11 +8,10 @@
 
 import os
 import shutil
-from datetime import datetime
-from typing import Dict, List, Any, Optional, Callable
-from pathlib import Path
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
 
 
 class BackupType(Enum):

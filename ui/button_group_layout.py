@@ -12,9 +12,10 @@
 提供更清晰的UI组织和更好的用户体验。
 """
 
-import flet as ft
-from typing import List, Dict, Callable, Any, Optional
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
+
+import flet as ft
 
 
 class FunctionButtonGroups(Enum):

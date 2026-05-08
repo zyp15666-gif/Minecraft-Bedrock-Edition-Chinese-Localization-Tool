@@ -5,9 +5,10 @@
 无需下载桌面客户端，直接在浏览器中运行
 """
 
-import sys
 import os
+import sys
 import warnings
+
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 # 添加项目根目录到路径（使用统一的路径处理）
@@ -17,13 +18,16 @@ sys.path.insert(0, project_root)
 
 
 def main(page):
-    """Flet应用主函数"""
-    from ui.main_window import MinecraftTranslatorApp
-    app = MinecraftTranslatorApp(page)
+    """Flet 入口：与桌面版一致，委托 main_window.main（含 on_close 与全局钩子）。"""
+    from ui.main_window import main as run_app
+
+    run_app(page)
 
 
 if __name__ == "__main__":
     import flet as ft
+
+    import ui.main_window  # noqa: F401 — 安装日志与崩溃钩子
 
     print("=" * 60)
     print("🎮 正在启动 Minecraft 基岩版汉化工具...")

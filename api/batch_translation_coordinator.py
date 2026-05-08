@@ -10,10 +10,9 @@
 - 术语处理
 """
 
-import re
-from typing import Dict, Any, List, Optional, Callable
+from typing import Any, Callable, Dict, List, Optional
+
 from core.log_manager import get_logger
-from core.utils import contains_known_terms, normalize_game_text
 
 logger = get_logger(__name__)
 
@@ -33,14 +32,14 @@ class BatchTranslationCoordinator:
         """
         self.config = config
         self.term_service = term_service
-        
+
         advanced_config = config.get('advanced', {})
         translation_config = advanced_config.get('translation', {})
-        
+
         self.enable_adaptive_batch = translation_config.get('enable_adaptive_batch', True)
         self.max_batch_size = translation_config.get('max_batch_size', 10)
         self.min_batch_size = translation_config.get('min_batch_size', 2)
-        
+
         logger.info(f"[BatchTranslationCoordinator] 初始化完成: adaptive_batch={self.enable_adaptive_batch}")
 
     def batch_translate_fragments(
@@ -67,7 +66,7 @@ class BatchTranslationCoordinator:
             return []
 
         batches = self._adaptive_batch_fragments(plain_texts)
-        
+
         if log_callback:
             log_callback(f"批量翻译: {len(plain_texts)} 个片段，分为 {len(batches)} 批")
 
@@ -80,10 +79,10 @@ class BatchTranslationCoordinator:
                 progress_callback(progress, total_batches - batch_idx - 1, 0)
 
             merged_text = self.MERGE_SEPARATOR.join(batch)
-            
+
             try:
                 translated_merged = api_client.translate(api_config, merged_text)
-                
+
                 if translated_merged:
                     translated_parts = self._robust_split_translated_text(
                         translated_merged, len(batch)
@@ -91,7 +90,7 @@ class BatchTranslationCoordinator:
                     all_translated.extend(translated_parts)
                 else:
                     all_translated.extend(batch)
-                    
+
             except Exception as e:
                 logger.error(f"批量翻译失败: {e}")
                 all_translated.extend(batch)
@@ -117,7 +116,7 @@ class BatchTranslationCoordinator:
 
         for text in plain_texts:
             text_length = len(text)
-            
+
             if current_length + text_length > max_length or len(current_batch) >= self.max_batch_size:
                 if current_batch:
                     batches.append(current_batch)
@@ -158,7 +157,7 @@ class BatchTranslationCoordinator:
             return [translated_text]
 
         parts = translated_text.split(self.MERGE_SEPARATOR)
-        
+
         if len(parts) == expected_parts:
             return parts
 
@@ -204,7 +203,7 @@ class BatchTranslationCoordinator:
         if self.term_service:
             processed_texts = []
             term_replacements = []
-            
+
             for text in plain_texts:
                 processed_text, replacements = self._preprocess_with_terms(text)
                 processed_texts.append(processed_text)
@@ -224,7 +223,7 @@ class BatchTranslationCoordinator:
                 final_text = self._postprocess_with_terms(translated, replacements)
                 final_texts.append(final_text)
             return final_texts
-        
+
         return translated_texts
 
     def _preprocess_with_terms(self, text: str) -> tuple:
@@ -241,17 +240,17 @@ class BatchTranslationCoordinator:
 
         replacements = {}
         processed_text = text
-        
+
         known_terms = self.term_service.find_terms_in_text(text)
-        
+
         for term_info in known_terms:
             original = term_info['original']
             translation = term_info['translation']
             placeholder = f"__TERM_{len(replacements)}__"
-            
+
             processed_text = processed_text.replace(original, placeholder)
             replacements[placeholder] = translation
-        
+
         return processed_text, replacements
 
     def _postprocess_with_terms(self, text: str, replacements: Dict[str, str]) -> str:
@@ -266,5 +265,5 @@ class BatchTranslationCoordinator:
         """
         for placeholder, translation in replacements.items():
             text = text.replace(placeholder, translation)
-        
+
         return text

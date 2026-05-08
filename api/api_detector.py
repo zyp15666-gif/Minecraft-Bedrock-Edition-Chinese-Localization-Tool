@@ -10,11 +10,10 @@ API检测模块 — 负责API配置构建、连通性测试和可用性检测
 """
 
 import copy
-import logging
-import time
-import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
+
+import requests
 
 from core.log_manager import get_logger
 
@@ -136,14 +135,14 @@ class APIDetector:
                 "stream": False,
             }
             resp = requests.post(test_url, json=payload, headers=headers, timeout=10)
-            
+
             if resp.status_code in (200, 400, 401, 429):  # 4xx表示 API 存在但可能参数或鉴权问题，但 API 是通的
                 logger.info(f"{api_name} 可用 (状态码 {resp.status_code})")
                 return api_config
             else:
                 logger.warning(f"{api_name} 返回状态码 {resp.status_code}")
                 return None
-                
+
         except Exception as e:
             logger.warning(f"{api_name} 连接失败: {type(e).__name__}: {str(e)[:60]}")
             return None

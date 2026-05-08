@@ -19,6 +19,7 @@ dependencies = [
     "requests>=2.32.3",
     "tqdm>=4.66.1",
     "esprima>=4.0.1",
+    "pyjsparser>=2.2.0",
     "pynbt>=2.0.0",
     "mcstructure>=0.0.1b6",
     "aiohttp>=3.9.0",
@@ -69,12 +70,26 @@ line-length = 120
 target-version = "py39"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N"]
+select = ["E", "F", "W", "I", "N", "C901"]
 ignore = ["E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
 
 [tool.ruff.format]
 quote-style = "double"
-indent-width = 4
+
+[tool.coverage.run]
+source = ["."]
+omit = ["*/tests/*", "*/venv/*", "*/.venv/*"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+fail_under = 35
+
+[tool.coverage.threshold]
+api = 60
+core_use_cases = 55
 
 [tool.mypy]
 python_version = "3.9"

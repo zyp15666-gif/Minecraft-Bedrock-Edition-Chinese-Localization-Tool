@@ -6,14 +6,12 @@
 集中管理项目中重复使用的辅助函数，避免代码重复。
 """
 
-import re
 import os
+import re
 import sys
-import time
 import unicodedata
 from pathlib import Path
-from typing import List, Tuple, Optional, Callable, Any, Dict
-
+from typing import Callable, Dict, List, Optional, Tuple
 
 LANG_KEY_PATTERN = re.compile(
     r'^[a-z_]+(\.[a-z_]+)*:[a-z_\.]+\.(name|description|title|text)$',
@@ -165,11 +163,11 @@ def create_log_progress_wrappers(
 ) -> Tuple[Callable[[str], None], Callable[[float, int, int], None]]:
     """
     创建统一的日志和进度包装函数，减少重复代码。
-    
+
     Args:
         progress_callback: 原始进度回调函数
         log_callback: 原始日志回调函数
-        
+
     Returns:
         (log_func, progress_func) 包装后的函数
     """
@@ -177,12 +175,12 @@ def create_log_progress_wrappers(
         """包装的日志函数"""
         if log_callback:
             log_callback(msg)
-    
+
     def progress_func(value: float, remaining_count: int = 0, remaining_time: int = 0) -> None:
         """包装的进度函数"""
         if progress_callback:
             progress_callback(value, remaining_count, remaining_time)
-    
+
     return log_func, progress_func
 
 
@@ -285,7 +283,7 @@ class CallbackWrapper:
 def normalize_text_for_cache(text: str) -> str:
     """
     规范化文本用于缓存键，提高缓存命中率。
-    
+
     规范化规则：
     1. Unicode 标准化为 NFC 形式，合并组合字符
     2. 移除不可见控制字符（零宽空格、方向标记等）
@@ -293,28 +291,28 @@ def normalize_text_for_cache(text: str) -> str:
     4. 仅去除首尾空白，保留内部格式不变
     5. 保留颜色代码（§前缀）和占位符（[[]]格式）不变
     6. 不改变大小写（Minecraft中大小写可能有意义）
-    
+
     Args:
         text: 原始文本
-        
+
     Returns:
         规范化后的文本
     """
     if not text:
         return text
-    
+
     # Unicode 标准化为 NFC 形式，合并组合字符
     text = unicodedata.normalize('NFC', text)
-    
+
     # 移除控制字符（保留常见空白），如零宽空格、不换行空格等
     # 这些字符可能导致相同内容被缓存为不同键
     text = re.sub(r'[\u200b\u200c\u200d\u200e\u200f\u202a-\u202e]', '', text)
-    
+
     # 统一不间断空格为普通空格
     text = text.replace('\u00a0', ' ')  # NBSP
     text = text.replace('\u202f', ' ')  # NNBSP
     text = text.replace('\u3000', ' ')  # 全角空格
-    
+
     # 仅去除首尾空白字符，保留内部空白不变
     return text.strip()
 
@@ -336,40 +334,40 @@ def contains_color_codes(text: str) -> bool:
 def contains_known_terms(text: str, term_service) -> bool:
     """
     检查文本是否包含已知术语（需要术语预处理）。
-    
+
     Args:
         text: 待检查文本
         term_service: 术语服务实例
-        
+
     Returns:
         是否包含已知术语
     """
     if not text or not term_service or not term_service.terms:
         return False
-    
+
     # 直接调用术语服务的快速检测方法
     return term_service.has_any_term(text)
-    
+
 
 
 
 def sanitize_log_message(message: str, hide_api_keys: bool = True, max_visible_length: int = 50) -> str:
     """
     对日志消息进行脱敏处理，隐藏敏感信息。
-    
+
     Args:
         message: 原始日志消息
         hide_api_keys: 是否隐藏API密钥
         max_visible_length: 最大可见长度，超过部分用...代替
-        
+
     Returns:
         脱敏后的日志消息
     """
     if not message:
         return message
-    
+
     result = message
-    
+
     # 1. 隐藏API密钥（常见的API密钥模式）
     if hide_api_keys:
         result = re.sub(r'sk-[a-zA-Z0-9]{20,70}', 'sk-***REDACTED***', result)
@@ -380,7 +378,7 @@ def sanitize_log_message(message: str, hide_api_keys: bool = True, max_visible_l
                        '"api_key": "***REDACTED***"', result)
         result = re.sub(r'Authorization["\']?\s*:\s*["\']?Bearer\s+[a-zA-Z0-9._-]{10,}',
                        'Authorization: Bearer ***REDACTED***', result)
-    
+
     # 2. 限制敏感文本的显示长度（如API响应中的长内容字段）
     # 匹配各种API响应JSON字段中的长文本
     for prefix in ['content', 'message', 'result', 'text']:
@@ -390,7 +388,7 @@ def sanitize_log_message(message: str, hide_api_keys: bool = True, max_visible_l
             if len(match) > max_visible_length:
                 truncated = match[:max_visible_length] + "..."
                 result = result.replace(match, truncated)
-    
+
     # 3. 对翻译结果进行特殊处理，确保不超过最大长度
     for prefix in ['翻译结果', '翻译完成', '译文']:
         pattern = rf'{prefix}[:：]\s*["\']?([^"\']{{50,}})["\']?'
@@ -399,13 +397,13 @@ def sanitize_log_message(message: str, hide_api_keys: bool = True, max_visible_l
             if len(match) > max_visible_length:
                 truncated = match[:max_visible_length] + "..."
                 result = result.replace(match, truncated)
-    
+
     # 4. 移除可能的JSON中的敏感字段
     sensitive_json_fields = ['api_key', 'secret', 'password', 'token', 'auth', 'credential']
     for field in sensitive_json_fields:
         pattern = rf'"{field}"\s*:\s*"[^"]+"'
         result = re.sub(pattern, f'"{field}": "***REDACTED***"', result)
-    
+
     return result
 
 
@@ -479,17 +477,17 @@ def normalize_game_text(text: str) -> Tuple[str, str]:
 def sanitize_api_response(response_text: str, max_length: int = 100) -> str:
     """
     脱敏API响应文本，避免记录完整响应内容。
-    
+
     Args:
         response_text: API响应文本
         max_length: 最大显示长度
-        
+
     Returns:
         脱敏后的响应文本摘要
     """
     if not response_text:
         return ""
-    
+
     # 如果响应是JSON，尝试提取非敏感部分
     if response_text.strip().startswith('{') or response_text.strip().startswith('['):
         try:
@@ -498,7 +496,7 @@ def sanitize_api_response(response_text: str, max_length: int = 100) -> str:
             # 创建脱敏副本
             sanitized = {}
             for key, value in data.items():
-                if isinstance(key, str) and any(sensitive in key.lower() for sensitive in 
+                if isinstance(key, str) and any(sensitive in key.lower() for sensitive in
                                                ['key', 'secret', 'token', 'password', 'auth']):
                     sanitized[key] = '***REDACTED***'
                 elif isinstance(value, str) and len(value) > 20:
@@ -508,7 +506,7 @@ def sanitize_api_response(response_text: str, max_length: int = 100) -> str:
             return json.dumps(sanitized, ensure_ascii=False)[:max_length]
         except Exception:
             pass
-    
+
     # 非JSON文本，简单截断
     if len(response_text) > max_length:
         return response_text[:max_length] + "..."

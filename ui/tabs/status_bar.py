@@ -11,8 +11,9 @@
     status_bar = create_status_bar(context)
 """
 
-import flet as ft
 from typing import TYPE_CHECKING
+
+import flet as ft
 
 if TYPE_CHECKING:
     from ui.tabs.context import UIContext

@@ -12,7 +12,7 @@ UI 上下文模块
 """
 
 import threading
-from typing import Dict, Any, Callable, Optional, List
+from typing import Any, Callable, Dict, List, Optional
 
 import flet as ft
 

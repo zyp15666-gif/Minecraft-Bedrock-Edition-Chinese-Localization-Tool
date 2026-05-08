@@ -16,8 +16,9 @@
     container = monitor.create()
 """
 
+from typing import Any, Callable, Dict, Optional
+
 import flet as ft
-from typing import Dict, Any, Optional, Callable
 
 
 class PerformanceMonitor:

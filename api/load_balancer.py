@@ -12,9 +12,10 @@
 注意：健康状态检查由 CircuitBreaker 统一管理，不再在此维护。
 """
 
-import time
 import threading
-from typing import Dict, Any, List, Optional
+import time
+from typing import Any, Dict, List, Optional
+
 from core.log_manager import get_logger
 
 logger = get_logger(__name__)

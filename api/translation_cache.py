@@ -11,12 +11,13 @@
 4. 异步批量写入：避免阻塞翻译流程
 """
 
+import os
+import queue
+import sqlite3
 import threading
 import time
-import os
-import sqlite3
-import queue
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 from core.log_manager import get_logger
 from core.utils import normalize_text_for_cache
 
@@ -45,12 +46,12 @@ class TranslationCache:
         else:
             self._cache = {}
             self._access_order = []
-        
+
         self._lock = threading.RLock()
         self._max_size = max_size
         self._db_path = db_path
         self._db_connection = None
-        
+
         self._total_db_count = 0
 
         self._hits = 0
@@ -79,7 +80,7 @@ class TranslationCache:
                 self._handle_corrupted_database()
 
             self._db_connection = sqlite3.connect(
-                self._db_path, 
+                self._db_path,
                 check_same_thread=False,
                 timeout=10
             )
@@ -164,7 +165,7 @@ class TranslationCache:
         """统计数据库中的缓存条目数（惰性加载：不预加载数据）"""
         if not self._db_connection:
             return
-            
+
         try:
             cursor = self._db_connection.cursor()
             cursor.execute('SELECT COUNT(*) FROM translations')
@@ -239,7 +240,7 @@ class TranslationCache:
         """从数据库删除缓存"""
         if not self._db_connection:
             return
-            
+
         try:
             cursor = self._db_connection.cursor()
             cursor.execute('DELETE FROM translations WHERE key=?', (key,))
@@ -264,7 +265,7 @@ class TranslationCache:
             缓存的翻译结果，如果不存在则返回None
         """
         normalized_key = normalize_text_for_cache(key)
-        
+
         with self._lock:
             if CACHETOOLS_AVAILABLE:
                 if normalized_key in self._cache:
@@ -281,7 +282,7 @@ class TranslationCache:
                     value = self._cache[normalized_key]
                     logger.debug(f"内存缓存命中: {normalized_key[:50]}...")
                     return value
-            
+
             if self._db_connection:
                 try:
                     cursor = self._db_connection.cursor()
@@ -289,7 +290,7 @@ class TranslationCache:
                     row = cursor.fetchone()
                     if row:
                         value, access_count, timestamp = row
-                        
+
                         if CACHETOOLS_AVAILABLE:
                             self._cache[normalized_key] = value
                         else:
@@ -297,7 +298,7 @@ class TranslationCache:
                             if normalized_key in self._access_order:
                                 self._access_order.remove(normalized_key)
                             self._access_order.append(normalized_key)
-                        
+
                         self._hits += 1
 
                         self._safe_db_write(normalized_key, value, access_count + 1, time.time())
@@ -306,7 +307,7 @@ class TranslationCache:
                         return value
                 except Exception as e:
                     logger.error(f"从数据库读取失败: {e}")
-            
+
             self._misses += 1
             logger.debug(f"缓存未命中: {normalized_key[:50]}...")
             return None
@@ -319,19 +320,19 @@ class TranslationCache:
             value: 缓存值（翻译结果）
         """
         normalized_key = normalize_text_for_cache(key)
-        
+
         with self._lock:
             if CACHETOOLS_AVAILABLE:
                 self._cache[normalized_key] = value
             else:
                 if len(self._cache) >= self._max_size and normalized_key not in self._cache:
                     self._smart_evict()
-                
+
                 self._cache[normalized_key] = value
                 if normalized_key in self._access_order:
                     self._access_order.remove(normalized_key)
                 self._access_order.append(normalized_key)
-            
+
             self._sets += 1
 
             if self._db_connection:
@@ -343,7 +344,7 @@ class TranslationCache:
         """智能清理缓存：移除访问次数最低且最久未使用的项（仅用于内置LRU）"""
         if CACHETOOLS_AVAILABLE:
             return
-        
+
         with self._lock:
             if not self._cache:
                 return
@@ -383,7 +384,7 @@ class TranslationCache:
             else:
                 self._cache.clear()
                 self._access_order.clear()
-            
+
             if self._db_connection:
                 try:
                     cursor = self._db_connection.cursor()
@@ -392,7 +393,7 @@ class TranslationCache:
                     self._total_db_count = 0
                 except Exception as e:
                     logger.error(f"清空数据库失败: {e}")
-            
+
             logger.info("缓存已清空")
 
     def size(self) -> int:
@@ -411,7 +412,7 @@ class TranslationCache:
         with self._lock:
             if normalized_key in self._cache:
                 return True
-            
+
             if self._db_connection:
                 try:
                     cursor = self._db_connection.cursor()
@@ -419,7 +420,7 @@ class TranslationCache:
                     return cursor.fetchone() is not None
                 except Exception as e:
                     logger.error(f"检查数据库失败: {e}")
-        
+
         return False
 
     def get_cache_stats(self) -> Dict[str, Any]:
@@ -427,7 +428,7 @@ class TranslationCache:
         with self._lock:
             total_requests = self._hits + self._misses
             hit_rate = (self._hits / total_requests * 100) if total_requests > 0 else 0
-            
+
             return {
                 'memory_cache_size': len(self._cache),
                 'max_size': self._max_size,
@@ -444,7 +445,7 @@ class TranslationCache:
         self._writer_running = False
         if self._writer_thread and self._writer_thread.is_alive():
             self._writer_thread.join(timeout=2.0)
-        
+
         if self._db_connection:
             try:
                 self._db_connection.close()

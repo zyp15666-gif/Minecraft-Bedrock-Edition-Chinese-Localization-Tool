@@ -4,7 +4,8 @@
 智谱 AI 提供商
 """
 
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
+
 from .openai_compatible import OpenAICompatibleProvider
 
 

@@ -16,12 +16,12 @@ UI标签页模块 - 从main_window_flet.py分离出的标签页组件
     from ui.tabs import UIContext, create_status_bar, create_function_buttons
 """
 
-from ui.tabs.context import UIContext
-from ui.tabs.status_bar import create_status_bar
-from ui.tabs.function_buttons import create_function_buttons
-from ui.tabs.progress import create_progress_section
 from ui.tabs.config_tab import create_config_tab
+from ui.tabs.context import UIContext
+from ui.tabs.function_buttons import create_function_buttons
 from ui.tabs.log_tab import create_log_tab
+from ui.tabs.progress import create_progress_section
+from ui.tabs.status_bar import create_status_bar
 
 __all__ = [
     'UIContext',

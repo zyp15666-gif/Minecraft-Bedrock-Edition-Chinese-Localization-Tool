@@ -4,20 +4,21 @@
 api/providers 抽象提供商 单元测试
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
+
 from api.providers import (
+    PROVIDER_REGISTRY,
     BaseProvider,
     OllamaProvider,
     OpenAICompatibleProvider,
     ZhipuProvider,
-    DoubaoProvider,
     get_provider,
     register_provider,
-    PROVIDER_REGISTRY,
 )
 
 

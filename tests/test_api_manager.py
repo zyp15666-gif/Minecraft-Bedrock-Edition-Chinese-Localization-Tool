@@ -12,20 +12,17 @@ APIManager 单元测试
 注意：此测试使用 monkeypatch 隔离依赖，不会污染全局 sys.modules。
 """
 
-import pytest
-import json
-import time
-import types
-from unittest.mock import Mock, patch, MagicMock, call
 import sys
-from pathlib import Path
+import types
+from unittest.mock import Mock
 
+import pytest
 
 # ──────────── 辅助函数 ────────────
 
 def _mock_api_modules(monkeypatch):
     """使用 monkeypatch 安全地 Mock 依赖模块，自动清理"""
-    mock_logger = Mock()
+    Mock()
     mock_logger_instance = Mock()
 
     # 注册 mock 模块
@@ -319,6 +316,7 @@ class TestAPIManagerThreadSafety:
 
     def test_get_next_api_thread_safety(self):
         import threading
+
         from api.api_manager import APIManager
 
         api_mgr = APIManager({"basic": {}})

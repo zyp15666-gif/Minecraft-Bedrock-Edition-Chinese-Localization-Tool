@@ -25,15 +25,14 @@
     cmd_manager.redo()
 """
 
+import json
 import os
 import shutil
-import json
-import copy
 import threading
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional, List, Dict
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional
 
 from core.log_manager import get_logger
 

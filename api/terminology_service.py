@@ -4,10 +4,10 @@
 术语处理服务 - 作为门面类，整合加载器、匹配器和导出器
 """
 
-from typing import Dict, Optional, List, Tuple, Any
+from typing import Any, Dict, Optional
 
+from api.terminology import TerminologyExporter, TerminologyLoader, TerminologyMatcher
 from core.log_manager import get_logger
-from api.terminology import TerminologyLoader, TerminologyMatcher, TerminologyExporter
 
 logger = get_logger(__name__)
 
@@ -17,7 +17,7 @@ class TerminologyService:
 
     def __init__(self, dict_path: Optional[str] = None, config: Optional[Dict[str, Any]] = None):
         """初始化术语处理服务
-        
+
         Args:
             dict_path: 术语词典文件路径，None表示使用内置词典
             config: 配置字典，用于读取高级配置
@@ -26,7 +26,7 @@ class TerminologyService:
         self.loader = TerminologyLoader(dict_path, config)
         self.matcher = TerminologyMatcher(self.loader)
         self.exporter = TerminologyExporter(self.loader)
-        
+
         # 向后兼容的快捷方法映射
         self.preprocess = self.matcher.preprocess
         self.postprocess = self.matcher.postprocess
@@ -45,13 +45,13 @@ class TerminologyService:
         self.get_term_stats = self.exporter.get_term_stats
         self.check_for_updates = self.exporter.check_for_updates
         self.update_terms_from_url = self.exporter.update_terms_from_url
-        
+
         # 向后兼容的属性
         self.terms = self.loader.terms
         self._lower_terms = self.loader.lower_terms
         self._clean_terms = self.loader.clean_terms
         self._clean_lower_terms = self.loader.clean_lower_terms
-        
+
         # 保持旧的属性名（用于向后兼容）
         if hasattr(self.loader, '_spelling_mistakes'):
             self._spelling_mistakes = self.loader.spelling_mistakes
@@ -78,8 +78,8 @@ class TerminologyService:
     def add_spelling_correction(self, mistake: str, correction: str, save_to_file: bool = False) -> bool:
         """添加新的拼写修正规则（向后兼容，支持保存到文件）"""
         self.loader.add_spelling_correction(mistake, correction)
-        
+
         if save_to_file:
             return self.loader.save_spelling_corrections()
-        
+
         return True

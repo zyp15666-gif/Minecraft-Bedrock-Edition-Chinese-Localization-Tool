@@ -12,8 +12,9 @@ API 管理组件模块
     container = api_component.create()
 """
 
+from typing import Any, Callable, Dict
+
 import flet as ft
-from typing import Callable, Dict, Any, Optional, List
 
 
 class APIManagerComponent:

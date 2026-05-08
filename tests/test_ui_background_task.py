@@ -6,12 +6,8 @@ UI 层单元测试 — background_task_service.py
 使用 mock Page 对象隔离 Flet 依赖，验证线程安全调度逻辑。
 """
 
-import sys
-import os
 import time
-import threading
-from unittest.mock import Mock, MagicMock, patch, ANY
-from concurrent.futures import TimeoutError as FuturesTimeoutError
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -287,7 +283,7 @@ class TestGlobalService:
     """全局任务服务测试"""
 
     def test_init_and_get(self):
-        from ui.background_task_service import init_global_task_service, get_global_task_service
+        from ui.background_task_service import get_global_task_service, init_global_task_service
         page = _make_mock_page()
         svc = init_global_task_service(page, max_workers=2)
         assert svc is not None

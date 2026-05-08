@@ -16,11 +16,10 @@ Windows 10/11 可访问性特性：
 - 放大镜
 """
 
-import os
-import sys
 import logging
-from typing import Optional, Dict, Any, List, Callable
+import sys
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

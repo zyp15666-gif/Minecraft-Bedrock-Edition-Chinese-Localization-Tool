@@ -5,7 +5,8 @@ OpenAI 兼容格式提供商（DeepSeek、Qwen等）
 """
 
 import os
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
+
 from .base import BaseProvider
 
 

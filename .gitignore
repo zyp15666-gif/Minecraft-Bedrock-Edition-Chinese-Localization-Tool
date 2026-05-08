@@ -49,6 +49,7 @@ logs/
 build/
 dist/
 *.spec
+!MinecraftBedrockLocalizer.spec
 
 # Temporary files
 *.tmp

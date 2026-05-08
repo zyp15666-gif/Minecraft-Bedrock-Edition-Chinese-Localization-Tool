@@ -4,10 +4,20 @@
 pytest fixtures 和共享测试资源
 """
 
-import pytest
 import sys
-from unittest.mock import Mock, MagicMock
-from pathlib import Path
+from unittest.mock import MagicMock, Mock
+
+import pytest
+
+
+@pytest.fixture
+def ui_scale():
+    """DialogManager 等组件所需的最小 ui_scale 字典。"""
+    return {
+        "section_title_size": 16,
+        "body_size": 12,
+        "label_size": 11,
+    }
 
 
 @pytest.fixture(scope="session")

@@ -10,10 +10,10 @@ Windows 10 1909+ / Windows 11 通常已预装 WebView2。
 但 LTSC/LTSB 版本、企业定制镜像可能缺失。
 """
 
-import os
-import sys
-import subprocess
 import logging
+import os
+import subprocess
+import sys
 import webbrowser
 from pathlib import Path
 from typing import Optional, Tuple
@@ -200,7 +200,7 @@ def ensure_webview2(show_dialog: bool = True) -> bool:
         print("\n" + "=" * 60)
         print("错误：缺少 Microsoft Edge WebView2 运行时")
         print("=" * 60)
-        print(f"请访问以下链接下载并安装：")
+        print("请访问以下链接下载并安装：")
         print(get_webview2_download_url())
         print("=" * 60 + "\n")
 

@@ -4,15 +4,17 @@
 CircuitBreaker 熔断器单元测试
 """
 
-import pytest
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
+
+import pytest
+
 from api.circuit_breaker import (
     CircuitBreaker,
     CircuitOpenError,
     CircuitState,
     get_global_circuit_breaker,
-    reset_global_circuit_breaker
+    reset_global_circuit_breaker,
 )
 
 

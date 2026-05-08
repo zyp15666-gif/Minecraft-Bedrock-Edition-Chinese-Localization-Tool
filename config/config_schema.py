@@ -8,8 +8,7 @@
 """
 
 import re
-from typing import Dict, Any, List, Optional, Tuple
-
+from typing import Any, Dict, List, Tuple
 
 # ──────────── Schema 定义 ────────────
 
@@ -136,7 +135,7 @@ def _validate_dict(
 
         # 检查必需字段
         if field_schema.get("required", False) and value is None:
-            errors.append((field_path, f"缺少必需字段"))
+            errors.append((field_path, "缺少必需字段"))
             continue
 
         if value is None:

@@ -4,16 +4,16 @@
 用例模块包
 """
 
-from .extract_only import ExtractOnlyUseCase
-from .extract_and_translate import ExtractAndTranslateUseCase
-from .replace_display_names import ReplaceDisplayNamesUseCase
-from .one_click_service import OneClickServiceUseCase
+from .adapt_entity_display_names import AdaptEntityDisplayNamesUseCase
 from .batch_delete_value import BatchDeleteValueUseCase
 from .batch_restore_value import BatchRestoreValueUseCase
+from .extract_and_translate import ExtractAndTranslateUseCase
+from .extract_only import ExtractOnlyUseCase
+from .one_click_service import OneClickServiceUseCase
+from .replace_display_names import ReplaceDisplayNamesUseCase
+from .script_hardcode_translation import ScriptHardcodeTranslationUseCase
 from .translate_lang_file import TranslateLangFileUseCase
 from .translate_single_js_file import TranslateSingleJsFileUseCase
-from .adapt_entity_display_names import AdaptEntityDisplayNamesUseCase
-from .script_hardcode_translation import ScriptHardcodeTranslationUseCase
 
 __all__ = [
     'ExtractOnlyUseCase',

@@ -8,7 +8,8 @@ API提供商抽象基类
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
+
 from core.log_manager import get_logger
 
 logger = get_logger(__name__)

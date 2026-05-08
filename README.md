@@ -109,10 +109,16 @@ python scripts/run_flet_desktop.py
 ```
 
 ## 系统要求
-- **操作系统**：Windows 10 1909+ 或 Windows 11
-- **运行时**：Microsoft Edge WebView2（应用会自动检测）
+- **操作系统**：Windows 10 1909+ 或 Windows 11（x64 为常见发布目标；ARM64 需自行验证）
+- **运行时**：Microsoft Edge WebView2（`scripts/run_flet_desktop.py` 启动前会检测；LTSC 等环境若缺失请安装 Evergreen 引导程序）
+- **其他**：部分环境需安装 [Microsoft Visual C++ 可再发行组件包](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist) 以运行 Python/打包依赖
 - **Python**：3.9+（仅从源码运行时需要）
-- **网络**：用于 AI 翻译 API 调用
+- **网络**：用于 AI 翻译 API 调用、可选的更新检查
+
+## 合规与数据说明
+- 本工具**非** Mojang / Microsoft 官方产品。使用与分发游戏资源包、行为包及修改内容时，请遵守 [Minecraft 使用条款与最终用户许可协议 (EULA)](https://www.minecraft.net/eula)。
+- 开启云端翻译时，相关文本会发送至您所配置的 **第三方 AI 服务商**；请阅读各服务商条款，并仅处理您有权处理的内容。
+- 遇崩溃时日志中会出现 `ERR-xxxxxxxxxx` 错误 ID；可运行 `python scripts/export_diagnostics.py` 生成脱敏诊断包（版本、脱敏配置摘要、日志片段）便于反馈问题。
 
 ## 文档
 - [用户指南](docs/USER_GUIDE.md)

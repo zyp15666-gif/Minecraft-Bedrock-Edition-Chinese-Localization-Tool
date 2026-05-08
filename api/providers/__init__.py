@@ -6,15 +6,15 @@ API提供商模块
 包含提供商注册表和工厂函数，统一管理各API提供商。
 """
 
+from typing import Any, Dict, Type
+
+from core.log_manager import get_logger
+
 from .base import BaseProvider
+from .doubao import DoubaoProvider
 from .ollama import OllamaProvider
 from .openai_compatible import OpenAICompatibleProvider
 from .zhipu import ZhipuProvider
-from .doubao import DoubaoProvider
-
-from typing import Dict, Any, Type
-
-from core.log_manager import get_logger
 
 logger = get_logger(__name__)
 

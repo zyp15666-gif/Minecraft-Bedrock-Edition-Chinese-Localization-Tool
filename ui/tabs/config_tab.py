@@ -11,9 +11,10 @@
     config_container = create_config_tab(context, config, callbacks)
 """
 
-import flet as ft
 import threading
-from typing import TYPE_CHECKING, Dict, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Dict
+
+import flet as ft
 
 if TYPE_CHECKING:
     from ui.tabs.context import UIContext
@@ -259,12 +260,106 @@ def create_config_tab(
     ], scroll=ft.ScrollMode.AUTO, spacing=10)
 
 
+def _create_button_row(btn_cfg, context, button_switches, button_order_fields, _on_btn_switch_change, _on_order_change):
+    """创建单个按钮配置行
+
+    Args:
+        btn_cfg: 按钮配置字典
+        context: UI上下文对象
+        button_switches: 按钮开关字典
+        button_order_fields: 按钮顺序字段字典
+        _on_btn_switch_change: 开关变更回调
+        _on_order_change: 顺序变更回调
+
+    Returns:
+        Flet Column 控件
+    """
+    btn_id = btn_cfg.get('id', '')
+    btn_label = btn_cfg.get('label', btn_id)
+    btn_icon = btn_cfg.get('icon', 'BUG_REPORT')
+    btn_order = btn_cfg.get('order', 0)
+    btn_enabled = btn_cfg.get('enabled', True)
+
+    try:
+        icon = getattr(ft.Icons, btn_icon, ft.Icons.BUG_REPORT)
+    except Exception:
+        icon = ft.Icons.BUG_REPORT
+
+    sw = ft.Switch(
+        label=btn_label,
+        value=btn_enabled,
+        on_change=_on_btn_switch_change,
+        tooltip=f"ID: {btn_id}",
+    )
+    button_switches[btn_id] = sw
+
+    order_field = ft.TextField(
+        value=str(btn_order),
+        width=60,
+        text_size=12,
+        tooltip="排序序号",
+        on_change=_on_order_change,
+    )
+    button_order_fields[btn_id] = order_field
+
+    return ft.Column(
+        [
+            ft.Container(
+                content=ft.Row([
+                    ft.Icon(icon, size=14),
+                    ft.Container(sw, expand=True),
+                    ft.Text("顺序:", size=10),
+                    order_field,
+                ], spacing=5),
+                padding=5,
+                bgcolor=context.get_color('secondary_bg'),
+                border_radius=5,
+            )
+        ],
+        col=6,
+    )
+
+
+def _save_button_switches(button_config_list, button_switches, btn_mgmt_update_config, btn_mgmt_save_config):
+    for btn_id, switch in button_switches.items():
+        for cfg in button_config_list:
+            if cfg.get('id') == btn_id:
+                cfg['enabled'] = switch.value
+                break
+    if btn_mgmt_update_config:
+        btn_mgmt_update_config(button_config_list)
+    if btn_mgmt_save_config:
+        btn_mgmt_save_config()
+
+
+def _save_button_orders(button_config_list, button_order_fields, btn_mgmt_update_config, btn_mgmt_save_config, context):
+    for btn_id, order_field in button_order_fields.items():
+        try:
+            order = int(order_field.value)
+        except ValueError:
+            order = 999
+        for cfg in button_config_list:
+            if cfg.get('id') == btn_id:
+                cfg['order'] = order
+                break
+    button_config_list.sort(key=lambda x: x.get('order', 999))
+    if btn_mgmt_update_config:
+        btn_mgmt_update_config(button_config_list)
+    if btn_mgmt_save_config:
+        btn_mgmt_save_config()
+    context.page.snack_bar = ft.SnackBar(
+        content=ft.Text("✅ 按钮顺序已自动保存"),
+        duration=2000,
+    )
+    context.page.snack_bar.open = True
+    context.page.update()
+
+
 def _create_button_management_section(
     context,
     button_config_list: list,
     callbacks: Dict[str, Callable]
 ) -> ft.Container:
-    """创建按钮管理区域"""
     s = context.ui_scale
     scale = context.scale
 
@@ -275,91 +370,19 @@ def _create_button_management_section(
     button_order_fields: Dict[str, ft.TextField] = {}
 
     def _on_btn_switch_change(e):
-        def do_save():
-            for btn_id, switch in button_switches.items():
-                for cfg in button_config_list:
-                    if cfg.get('id') == btn_id:
-                        cfg['enabled'] = switch.value
-                        break
-            if btn_mgmt_update_config:
-                btn_mgmt_update_config(button_config_list)
-            if btn_mgmt_save_config:
-                btn_mgmt_save_config()
-        threading.Timer(0.5, do_save).start()
+        threading.Timer(0.5, lambda: _save_button_switches(
+            button_config_list, button_switches, btn_mgmt_update_config, btn_mgmt_save_config
+        )).start()
 
     def _on_order_change(e):
-        """按钮顺序修改时自动保存"""
-        def do_save_order():
-            for btn_id, order_field in button_order_fields.items():
-                try:
-                    order = int(order_field.value)
-                except ValueError:
-                    order = 999
-                for cfg in button_config_list:
-                    if cfg.get('id') == btn_id:
-                        cfg['order'] = order
-                        break
-            button_config_list.sort(key=lambda x: x.get('order', 999))
-            if btn_mgmt_update_config:
-                btn_mgmt_update_config(button_config_list)
-            if btn_mgmt_save_config:
-                btn_mgmt_save_config()
-            context.page.snack_bar = ft.SnackBar(
-                content=ft.Text("✅ 按钮顺序已自动保存"),
-                duration=2000,
-            )
-            context.page.snack_bar.open = True
-            context.page.update()
-        threading.Timer(0.5, do_save_order).start()
+        threading.Timer(0.5, lambda: _save_button_orders(
+            button_config_list, button_order_fields, btn_mgmt_update_config, btn_mgmt_save_config, context
+        )).start()
 
-    button_rows = []
-    for btn_cfg in button_config_list:
-        btn_id = btn_cfg.get('id', '')
-        btn_label = btn_cfg.get('label', btn_id)
-        btn_icon = btn_cfg.get('icon', 'BUG_REPORT')
-        btn_order = btn_cfg.get('order', 0)
-        btn_enabled = btn_cfg.get('enabled', True)
-
-        try:
-            icon = getattr(ft.Icons, btn_icon, ft.Icons.BUG_REPORT)
-        except Exception:
-            icon = ft.Icons.BUG_REPORT
-
-        sw = ft.Switch(
-            label=btn_label,
-            value=btn_enabled,
-            on_change=_on_btn_switch_change,
-            tooltip=f"ID: {btn_id}",
-        )
-        button_switches[btn_id] = sw
-
-        order_field = ft.TextField(
-            value=str(btn_order),
-            width=60,
-            text_size=12,
-            tooltip="排序序号",
-            on_change=_on_order_change,  # 添加自动保存
-        )
-        button_order_fields[btn_id] = order_field
-
-        button_rows.append(
-            ft.Column(
-                [
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Icon(icon, size=14),
-                            ft.Container(sw, expand=True),
-                            ft.Text("顺序:", size=10),
-                            order_field,
-                        ], spacing=5),
-                        padding=5,
-                        bgcolor=context.get_color('secondary_bg'),
-                        border_radius=5,
-                    )
-                ],
-                col=6,
-            )
-        )
+    button_rows = [
+        _create_button_row(btn_cfg, context, button_switches, button_order_fields, _on_btn_switch_change, _on_order_change)
+        for btn_cfg in button_config_list
+    ]
 
     button_grid = ft.ResponsiveRow(
         button_rows,

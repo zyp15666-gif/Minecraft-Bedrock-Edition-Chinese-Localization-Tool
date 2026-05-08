@@ -4,21 +4,21 @@
 脚本文件夹硬编码汉化的用例
 """
 
-from typing import Dict, Optional, Callable, Any, List
+from typing import Any, Callable, Dict, List, Optional
 
 
 class ScriptHardcodeTranslationUseCase:
     """脚本文件夹硬编码汉化的用例类"""
-    
+
     def __init__(self, translator):
         """
         初始化用例
-        
+
         Args:
             translator: Translator实例
         """
         self.translator = translator
-    
+
     def execute(
         self,
         bp_path: str,
@@ -29,14 +29,14 @@ class ScriptHardcodeTranslationUseCase:
     ) -> Dict[str, Any]:
         """
         执行脚本文件夹硬编码汉化操作
-        
+
         Args:
             bp_path: BP文件夹路径
             mode: 翻译模式 (1: 颜色代码模式, 2: AI智能模式)
             progress_callback: 进度回调函数
             log_callback: 日志回调函数
             ui_keywords: UI关键词列表
-            
+
         Returns:
             操作结果
         """

@@ -32,5 +32,5 @@
 ## 发布流程
 1. 更新版本号
 2. 运行测试：`pytest`
-3. 构建应用：`pyinstaller "我的世界基岩版 汉化提取＆替换 工具.spec"`
+3. 构建应用：`pyinstaller MinecraftBedrockLocalizer.spec`（与 `scripts/build_installer.py` 及仓库中的 spec 名称一致）
 4. 发布到 GitHub Releases

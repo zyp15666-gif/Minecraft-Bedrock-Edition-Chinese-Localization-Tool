@@ -5,9 +5,7 @@ Minecraft 基岩版汉化工具 — 功能事件处理器
 每个功能对应一个事件处理方法。
 """
 
-import os
-import time
-from typing import Dict, Any, Optional, Callable
+from typing import Any, Dict
 
 from core.log_manager import get_logger
 
@@ -72,7 +70,7 @@ class FunctionHandlers:
                 'script_hardcode_translation': {'bp_path': app.bp_path, 'mode': 2},
                 'translate_mcstructure': {'bp_path': app.bp_path},
             }
-            
+
             params = method_params.get(method_name, {'bp_path': app.bp_path, 'rp_path': app.rp_path}).copy()
             for k, v in extra_kwargs.items():
                 if k not in ['bp_path', 'rp_path', 'folder_path']:
@@ -96,7 +94,7 @@ class FunctionHandlers:
 
     def _handle_result(self, result: Dict[str, Any]):
         app = self.app
-        app.log(f"✅ 操作完成")
+        app.log("✅ 操作完成")
         if result:
             if result.get("success"):
                 app.show_success_dialog(

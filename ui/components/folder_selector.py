@@ -13,9 +13,10 @@
     folder_section = folder_selector.create()
 """
 
-import flet as ft
-from typing import Callable, Dict, Any, Optional, Tuple
 import os
+from typing import Any, Callable, Dict, Optional, Tuple
+
+import flet as ft
 
 
 class FolderSelector:

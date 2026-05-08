@@ -11,8 +11,9 @@
 - JS翻译预览对话框
 """
 
+from typing import Any, Callable, Dict, List
+
 import flet as ft
-from typing import Optional, Callable, Dict, Any, List
 
 
 class DialogManager:

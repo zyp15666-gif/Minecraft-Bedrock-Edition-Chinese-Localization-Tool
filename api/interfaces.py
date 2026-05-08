@@ -8,7 +8,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Callable
+from typing import Any, Callable, Dict, List, Optional
 
 
 class ITranslationEngine(ABC):

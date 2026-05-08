@@ -11,8 +11,9 @@
     container, progress_bar = create_progress_section(context, progress_text)
 """
 
-import flet as ft
 from typing import TYPE_CHECKING
+
+import flet as ft
 
 if TYPE_CHECKING:
     from ui.tabs.context import UIContext

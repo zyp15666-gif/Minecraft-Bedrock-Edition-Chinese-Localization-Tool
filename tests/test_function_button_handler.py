@@ -4,9 +4,9 @@
 功能按钮处理器测试
 """
 
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
-import flet as ft
 
 
 class TestFunctionButtonHandler:
@@ -93,8 +93,9 @@ class TestFunctionButtonHandler:
         handler.on_extract_only('/path/to/bp')
 
         mock_task_service.run_with_button_state.assert_called_once()
-        call_kwargs = mock_task_service.run_with_button_state.call_args[1]
-        assert 'task_fn' in call_kwargs
+        args, kwargs = mock_task_service.run_with_button_state.call_args
+        assert callable(args[0])
+        assert "disabled_controls" in kwargs
 
     def test_on_extract_and_translate(self, handler, mock_functions, mock_task_service):
         """测试提取翻译功能"""
@@ -183,7 +184,7 @@ class TestFunctionButtonHandlerEdgeCases:
 
         def mock_run(task_fn, **kwargs):
             try:
-                result = task_fn()
+                task_fn()
             except Exception as e:
                 if kwargs.get('on_error'):
                     kwargs['on_error'](e)

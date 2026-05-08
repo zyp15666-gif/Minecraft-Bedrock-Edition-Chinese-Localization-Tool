@@ -5,7 +5,8 @@ Ollama 本地模型提供商
 """
 
 import os
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
+
 from .base import BaseProvider
 
 

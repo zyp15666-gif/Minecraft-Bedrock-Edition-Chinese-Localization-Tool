@@ -5,21 +5,21 @@
 """
 
 import os
-from typing import Dict, Optional, Callable, Any
+from typing import Any, Callable, Dict, Optional
 
 
 class ExtractOnlyUseCase:
     """仅提取汉化key的用例类"""
-    
+
     def __init__(self, file_handler):
         """
         初始化用例
-        
+
         Args:
             file_handler: FileHandler实例
         """
         self.file_handler = file_handler
-    
+
     def execute(
         self,
         bp_path: str,
@@ -29,24 +29,24 @@ class ExtractOnlyUseCase:
     ) -> Dict[str, Any]:
         """
         执行仅提取汉化key操作
-        
+
         Args:
             bp_path: BP文件夹路径
             rp_path: RP文件夹路径（可选）
             progress_callback: 进度回调函数
             log_callback: 日志回调函数
-            
+
         Returns:
             操作结果
         """
         def log(msg):
             if log_callback:
                 log_callback(msg)
-        
+
         def progress(value, remaining_count=0, remaining_time=0):
             if progress_callback:
                 progress_callback(value, remaining_count, remaining_time)
-        
+
         try:
             # 检查BP路径
             if not bp_path:

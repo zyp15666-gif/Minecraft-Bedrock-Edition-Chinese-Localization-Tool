@@ -8,15 +8,16 @@ esprima版本兼容性测试
 
 import esprima
 
+
 def test_basic_parsing():
     """测试基本的JavaScript解析"""
     program = 'const answer = 42'
-    
+
     # 词法分析
     tokens = esprima.tokenize(program)
     assert len(tokens) == 4
     print("✅ 词法分析测试通过")
-    
+
     # 句法分析
     ast = esprima.parseScript(program)
     assert hasattr(ast, 'type') and ast.type == 'Program'
@@ -33,9 +34,9 @@ def test_minecraft_script():
         }
     });
     """
-    
+
     try:
-        ast = esprima.parseScript(script)
+        esprima.parseScript(script)
         print("✅ Minecraft脚本解析测试通过")
         return True
     except Exception as e:
@@ -52,7 +53,7 @@ def test_modern_js_features():
         "class MyClass {}",       # 类定义
         "async function f() {}",  # async/await
     ]
-    
+
     all_passed = True
     for feature in features:
         try:
@@ -61,7 +62,7 @@ def test_modern_js_features():
         except Exception as e:
             print(f"❌ 不支持: {feature} - {e}")
             all_passed = False
-    
+
     return all_passed
 
 if __name__ == "__main__":
@@ -70,16 +71,16 @@ if __name__ == "__main__":
     print("=" * 60)
     print(f"esprima版本: {esprima.__version__}")
     print()
-    
+
     test_basic_parsing()
     print()
-    
+
     test_minecraft_script()
     print()
-    
+
     test_modern_js_features()
     print()
-    
+
     print("=" * 60)
     print("测试完成")
     print("=" * 60)

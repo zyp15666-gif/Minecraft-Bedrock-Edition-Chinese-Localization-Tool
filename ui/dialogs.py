@@ -4,20 +4,19 @@ UI对话框模块 - 从main_window_flet.py分离出的对话框组件
 本模块包含所有独立的对话框函数，不再依赖于MinecraftTranslatorApp类。
 所有函数接收ft.Page对象作为第一个参数。
 """
-import os
 import asyncio
+import os
 import threading
 from datetime import datetime
-from typing import Optional, List, Dict, Any, Callable
+from typing import Any, Callable, Dict, List, Optional
 
 import flet as ft
 
 from api.api_defaults import (
-    API_URL_DEFAULTS,
     API_MODEL_PRESETS,
     API_TYPE_MAP,
     API_TYPE_OPTIONS,
-    SUPPORTED_PROVIDER_KEYS,
+    API_URL_DEFAULTS,
 )
 
 _TKINTER_AVAILABLE = False
@@ -613,4 +612,4 @@ def show_terminal_dialog(page: ft.Page, terminal_text: List[str], title: str = "
             ft.TextButton("关闭", on_click=lambda e: page.pop_dialog()),
         ],
     )
-    page.open(dialog)
+    page.show_dialog(dialog)

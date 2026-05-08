@@ -13,8 +13,9 @@
 
 import os
 import subprocess
+from typing import TYPE_CHECKING, Callable, Dict, Tuple
+
 import flet as ft
-from typing import TYPE_CHECKING, Dict, Any, Callable, Tuple
 
 if TYPE_CHECKING:
     from ui.tabs.context import UIContext
@@ -22,8 +23,8 @@ if TYPE_CHECKING:
 
 def _get_log_dir() -> str:
     """获取日志目录路径"""
-    documents_dir = os.path.join(os.path.expanduser("~"), "Documents")
-    return os.path.join(documents_dir, "Minecraft基岩版汉化工具", "logs")
+    from core.app_paths import get_documents_app_dir
+    return str(get_documents_app_dir() / "logs")
 
 
 def _open_log_folder(e):

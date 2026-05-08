@@ -8,7 +8,6 @@
 import json
 import os
 import sys
-from pathlib import Path
 
 # 添加项目根目录到路径
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -84,7 +83,7 @@ def merge_terms(existing_file: str, extended_file: str, output_file: str = None)
     # 保存结果
     save_json_file(output_file, existing)
 
-    print(f"\n✅ 合并完成!")
+    print("\n✅ 合并完成!")
     print(f"   输出文件: {output_file}")
     print(f"   总术语数量: {len(existing)} (+{len(extended)})")
 

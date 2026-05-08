@@ -5,13 +5,11 @@ Scripts通用工具模块
 提供路径处理、编码管理、错误处理等通用功能
 """
 
-import os
-import sys
 import logging
+import sys
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Union
-from contextlib import contextmanager
-
 
 # ============================================================================
 # 路径处理统一化
@@ -227,11 +225,11 @@ class ErrorHandler:
 
         # 根据错误类型提供建议
         if isinstance(error, FileNotFoundError):
-            print(f"   建议：检查文件路径是否正确")
+            print("   建议：检查文件路径是否正确")
         elif isinstance(error, ValidationError):
-            print(f"   建议：检查输入参数是否合法")
+            print("   建议：检查输入参数是否合法")
         elif isinstance(error, DependencyError):
-            print(f"   建议：确保已安装所需依赖")
+            print("   建议：确保已安装所需依赖")
 
         if exit_on_error:
             sys.exit(1)

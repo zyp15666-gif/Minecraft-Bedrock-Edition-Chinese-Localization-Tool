@@ -6,9 +6,7 @@ UI 层单元测试 — function_handlers.py
 使用 mock app 对象验证功能事件处理器的回调逻辑。
 """
 
-import sys
-import os
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 

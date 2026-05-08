@@ -11,13 +11,12 @@ FileHandler 单元测试
 - manifest.json 更新
 """
 
-import pytest
 import json
 import os
 import tempfile
-import shutil
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
+
 from core.file_handler import FileHandler
 
 
@@ -28,7 +27,7 @@ class TestFileHandlerInit:
         """测试使用默认配置初始化"""
         config = {"basic": {}}
         handler = FileHandler(config)
-        
+
         assert handler.namespace == "sgs_farm"  # 默认值
         assert handler.indent == 4  # 默认值
 
@@ -41,7 +40,7 @@ class TestFileHandlerInit:
             }
         }
         handler = FileHandler(config)
-        
+
         assert handler.namespace == "custom_ns"
         assert handler.indent == 2
 
@@ -121,11 +120,11 @@ class TestFileHandlerComplexJson:
             f.write("item.bread.name=Bread\n")
             f.write("empty_line=\n")
             temp_path = f.name
-        
+
         try:
             handler = FileHandler({"basic": {}})
             entries = handler.parse_lang_file(temp_path)
-            
+
             assert len(entries) == 3
             assert entries["item.apple.name"] == "Apple"
             assert entries["item.bread.name"] == "Bread"
@@ -138,7 +137,7 @@ class TestFileHandlerComplexJson:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.lang', delete=False, encoding='utf-8') as f:
             f.write("")
             temp_path = f.name
-        
+
         try:
             handler = FileHandler({"basic": {}})
             entries = handler.parse_lang_file(temp_path)
@@ -151,20 +150,20 @@ class TestFileHandlerComplexJson:
         with tempfile.TemporaryDirectory() as tmpdir:
             handler = FileHandler({"basic": {}})
             folder = Path(tmpdir) / "test_folder"
-            
+
             # 第一次写入
             handler.merge_and_write_lang(str(folder), {"key1": "value1", "key2": "value2"})
-            
+
             lang_path = folder / "texts" / "zh_CN.lang"
             assert lang_path.exists()
-            
+
             content = lang_path.read_text(encoding='utf-8')
             assert "key1=value1" in content
             assert "key2=value2" in content
-            
+
             # 第二次写入（合并）
             handler.merge_and_write_lang(str(folder), {"key2": "new_value2", "key3": "value3"})
-            
+
             content = lang_path.read_text(encoding='utf-8')
             assert "key1=value1" in content  # 保留旧值
             assert "key2=new_value2" in content  # 更新值
@@ -176,9 +175,9 @@ class TestFileHandlerComplexJson:
             handler = FileHandler({"basic": {}})
             folder = Path(tmpdir) / "test_folder"
             folder.mkdir()
-            
+
             handler.merge_and_write_lang(str(folder), {"key1": "line1\nline2"})
-            
+
             lang_path = folder / "texts" / "zh_CN.lang"
             content = lang_path.read_text(encoding='utf-8')
             assert "key1=line1\\nline2" in content
@@ -190,7 +189,7 @@ class TestFileHandlerJsonOperations:
     def test_remove_value_from_json(self):
         """测试移除display_name的value对象"""
         handler = FileHandler({"basic": {}})
-        
+
         data = {
             "minecraft:block": {
                 "components": {
@@ -198,15 +197,15 @@ class TestFileHandlerJsonOperations:
                 }
             }
         }
-        
+
         result = handler.remove_value_from_json(data)
-        
+
         assert result["minecraft:block"]["components"]["minecraft:display_name"] == "Stone"
 
     def test_restore_value_to_json(self):
         """测试还原display_name为value对象"""
         handler = FileHandler({"basic": {}})
-        
+
         data = {
             "minecraft:block": {
                 "components": {
@@ -214,15 +213,15 @@ class TestFileHandlerJsonOperations:
                 }
             }
         }
-        
+
         result = handler.restore_value_to_json(data)
-        
+
         assert result["minecraft:block"]["components"]["minecraft:display_name"] == {"value": "Stone"}
 
     def test_remove_value_nested(self):
         """测试嵌套结构的value移除"""
         handler = FileHandler({"basic": {}})
-        
+
         data = {
             "level1": {
                 "level2": {
@@ -230,19 +229,19 @@ class TestFileHandlerJsonOperations:
                 }
             }
         }
-        
+
         result = handler.remove_value_from_json(data)
         assert result["level1"]["level2"]["minecraft:display_name"] == "Nested"
 
     def test_remove_value_in_list(self):
         """测试列表中的value移除"""
         handler = FileHandler({"basic": {}})
-        
+
         data = [
             {"minecraft:display_name": {"value": "Item1"}},
             {"minecraft:display_name": {"value": "Item2"}}
         ]
-        
+
         result = handler.remove_value_from_json(data)
         assert result[0]["minecraft:display_name"] == "Item1"
         assert result[1]["minecraft:display_name"] == "Item2"
@@ -256,11 +255,11 @@ class TestFileHandlerParallelRead:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
             json.dump({"test": "data", "number": 123}, f)
             temp_path = f.name
-        
+
         try:
             handler = FileHandler({"basic": {}})
             result = handler._read_json_file(Path(temp_path))
-            
+
             assert result is not None
             assert result["test"] == "data"
             assert result["number"] == 123
@@ -272,11 +271,11 @@ class TestFileHandlerParallelRead:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
             f.write("invalid json")
             temp_path = f.name
-        
+
         try:
             handler = FileHandler({"basic": {}})
             result = handler._read_json_file(Path(temp_path))
-            
+
             assert result is None
         finally:
             os.unlink(temp_path)
@@ -289,10 +288,10 @@ class TestFileHandlerParallelRead:
                 path = Path(tmpdir) / f"test{i}.json"
                 path.write_text(json.dumps({"index": i}))
                 files.append(path)
-            
+
             handler = FileHandler({"basic": {}})
             results = handler.read_json_files_parallel(files)
-            
+
             assert len(results) == 5
             indices = [data["index"] for _, data in results]
             assert sorted(indices) == [0, 1, 2, 3, 4]
@@ -309,15 +308,15 @@ class TestFileHandlerParallelRead:
             # 创建嵌套文件夹结构
             subdir = Path(tmpdir) / "subdir"
             subdir.mkdir()
-            
+
             (Path(tmpdir) / "file1.json").write_text(json.dumps({"name": "file1"}))
             (Path(tmpdir) / "file2.json").write_text(json.dumps({"name": "file2"}))
             (subdir / "file3.json").write_text(json.dumps({"name": "file3"}))
             (Path(tmpdir) / "ignore.txt").write_text("text")
-            
+
             handler = FileHandler({"basic": {}})
             results = handler.scan_json_files_parallel(tmpdir)
-            
+
             assert len(results) == 3
             names = [data["name"] for _, data in results]
             assert "file1" in names
@@ -329,14 +328,14 @@ class TestFileHandlerParallelRead:
         with tempfile.TemporaryDirectory() as tmpdir:
             for i in range(3):
                 (Path(tmpdir) / f"file{i}.json").write_text(json.dumps({"index": i}))
-            
+
             progress_calls = []
             def progress_callback(current, total):
                 progress_calls.append((current, total))
-            
+
             handler = FileHandler({"basic": {}})
             results = handler.scan_json_files_parallel(tmpdir, progress_callback=progress_callback)
-            
+
             assert len(results) == 3
             assert len(progress_calls) == 3
 
@@ -348,7 +347,7 @@ class TestFileHandlerExtractEntries:
         """测试从方块定义提取条目"""
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir)
-            
+
             # 创建方块定义文件
             block_data = {
                 "minecraft:block": {
@@ -360,14 +359,14 @@ class TestFileHandlerExtractEntries:
                     }
                 }
             }
-            
+
             blocks_dir = bp_folder / "blocks"
             blocks_dir.mkdir()
             (blocks_dir / "stone.json").write_text(json.dumps(block_data))
-            
+
             handler = FileHandler({"basic": {"namespace": "test"}})
             entries = handler.extract_entries(str(bp_folder))
-            
+
             assert "tile.test:stone_block.name" in entries
             assert entries["tile.test:stone_block.name"] == "Stone Block"
 
@@ -375,7 +374,7 @@ class TestFileHandlerExtractEntries:
         """测试从物品定义提取条目"""
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir)
-            
+
             # 创建物品定义文件
             item_data = {
                 "minecraft:item": {
@@ -387,14 +386,14 @@ class TestFileHandlerExtractEntries:
                     }
                 }
             }
-            
+
             items_dir = bp_folder / "items"
             items_dir.mkdir()
             (items_dir / "sword.json").write_text(json.dumps(item_data))
-            
+
             handler = FileHandler({"basic": {"namespace": "test"}})
             entries = handler.extract_entries(str(bp_folder))
-            
+
             assert "item.test:magic_sword.name" in entries
             assert entries["item.test:magic_sword.name"] == "Magic Sword"
 
@@ -402,7 +401,7 @@ class TestFileHandlerExtractEntries:
         """测试字符串格式的display_name"""
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir)
-            
+
             block_data = {
                 "minecraft:block": {
                     "description": {
@@ -413,14 +412,14 @@ class TestFileHandlerExtractEntries:
                     }
                 }
             }
-            
+
             blocks_dir = bp_folder / "blocks"
             blocks_dir.mkdir()
             (blocks_dir / "custom.json").write_text(json.dumps(block_data))
-            
+
             handler = FileHandler({"basic": {"namespace": "test"}})
             entries = handler.extract_entries(str(bp_folder))
-            
+
             assert "tile.test:custom_block.name" in entries
             assert entries["tile.test:custom_block.name"] == "Custom Block Name"
 
@@ -428,7 +427,7 @@ class TestFileHandlerExtractEntries:
         """测试跳过已经是语言键的display_name"""
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir)
-            
+
             block_data = {
                 "minecraft:block": {
                     "description": {
@@ -439,14 +438,14 @@ class TestFileHandlerExtractEntries:
                     }
                 }
             }
-            
+
             blocks_dir = bp_folder / "blocks"
             blocks_dir.mkdir()
             (blocks_dir / "block.json").write_text(json.dumps(block_data))
-            
+
             handler = FileHandler({"basic": {"namespace": "test"}})
             entries = handler.extract_entries(str(bp_folder))
-            
+
             # 不应该提取以tile.开头的语言键
             assert "tile.test:block.name" not in entries
 
@@ -460,7 +459,7 @@ class TestFileHandlerEntityExtraction:
             bp_folder = Path(tmpdir)
             entities_dir = bp_folder / "entities"
             entities_dir.mkdir()
-            
+
             # 创建实体定义
             entity_data = {
                 "minecraft:entity": {
@@ -470,10 +469,10 @@ class TestFileHandlerEntityExtraction:
                 }
             }
             (entities_dir / "mob.json").write_text(json.dumps(entity_data))
-            
+
             handler = FileHandler({"basic": {}})
             result = handler.extract_entity_display_names(str(bp_folder))
-            
+
             assert "custom_mob" in result
             assert "entity.test:custom_mob.name" in result["custom_mob"]
 
@@ -483,7 +482,7 @@ class TestFileHandlerEntityExtraction:
             bp_folder = Path(tmpdir)
             entities_dir = bp_folder / "entities"
             entities_dir.mkdir()
-            
+
             entity_data = {
                 "minecraft:entity": {
                     "description": {
@@ -492,10 +491,10 @@ class TestFileHandlerEntityExtraction:
                 }
             }
             (entities_dir / "villager.json").write_text(json.dumps(entity_data))
-            
+
             handler = FileHandler({"basic": {}})
             result = handler.extract_entity_display_names(str(bp_folder))
-            
+
             # 基础名应该去掉_m后缀
             assert "villager" in result
             assert "entity.test:villager_m.name" in result["villager"]
@@ -506,7 +505,7 @@ class TestFileHandlerEntityExtraction:
             bp_folder = Path(tmpdir)
             entities_dir = bp_folder / "entities" / "monsters"
             entities_dir.mkdir(parents=True)
-            
+
             entity_data = {
                 "minecraft:entity": {
                     "description": {
@@ -515,10 +514,10 @@ class TestFileHandlerEntityExtraction:
                 }
             }
             (entities_dir / "zombie.json").write_text(json.dumps(entity_data))
-            
+
             handler = FileHandler({"basic": {}})
             result = handler.extract_entity_display_names(str(bp_folder))
-            
+
             assert "zombie" in result
 
     def test_extract_entity_display_names_no_entities_folder(self):
@@ -526,7 +525,7 @@ class TestFileHandlerEntityExtraction:
         with tempfile.TemporaryDirectory() as tmpdir:
             handler = FileHandler({"basic": {}})
             result = handler.extract_entity_display_names(str(tmpdir))
-            
+
             assert result == {}
 
 
@@ -537,7 +536,7 @@ class TestFileHandlerReplaceDisplayNames:
         """测试替换方块display_name"""
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir)
-            
+
             block_data = {
                 "minecraft:block": {
                     "description": {
@@ -548,14 +547,14 @@ class TestFileHandlerReplaceDisplayNames:
                     }
                 }
             }
-            
+
             (bp_folder / "block.json").write_text(json.dumps(block_data))
-            
+
             handler = FileHandler({"basic": {"namespace": "test"}})
             count = handler.replace_display_names_with_lang_key(str(bp_folder))
-            
+
             assert count == 1
-            
+
             updated = json.loads((bp_folder / "block.json").read_text())
             display_name = updated["minecraft:block"]["components"]["minecraft:display_name"]
             assert display_name == {"value": "tile.test:my_block.name"}
@@ -564,7 +563,7 @@ class TestFileHandlerReplaceDisplayNames:
         """测试替换物品display_name"""
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir)
-            
+
             item_data = {
                 "minecraft:item": {
                     "description": {
@@ -575,14 +574,14 @@ class TestFileHandlerReplaceDisplayNames:
                     }
                 }
             }
-            
+
             (bp_folder / "item.json").write_text(json.dumps(item_data))
-            
+
             handler = FileHandler({"basic": {"namespace": "test"}})
             count = handler.replace_display_names_with_lang_key(str(bp_folder))
-            
+
             assert count == 1
-            
+
             updated = json.loads((bp_folder / "item.json").read_text())
             display_name = updated["minecraft:item"]["components"]["minecraft:display_name"]
             assert display_name == {"value": "item.test:my_item.name"}
@@ -591,7 +590,7 @@ class TestFileHandlerReplaceDisplayNames:
         """测试没有display_name的文件"""
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir)
-            
+
             block_data = {
                 "minecraft:block": {
                     "description": {
@@ -600,12 +599,12 @@ class TestFileHandlerReplaceDisplayNames:
                     "components": {}
                 }
             }
-            
+
             (bp_folder / "block.json").write_text(json.dumps(block_data))
-            
+
             handler = FileHandler({"basic": {"namespace": "test"}})
             count = handler.replace_display_names_with_lang_key(str(bp_folder))
-            
+
             assert count == 0
 
 
@@ -617,10 +616,10 @@ class TestFileHandlerLanguagesJson:
         with tempfile.TemporaryDirectory() as tmpdir:
             handler = FileHandler({"basic": {}})
             handler.ensure_languages_json(tmpdir)
-            
+
             lang_json_path = Path(tmpdir) / "texts" / "languages.json"
             assert lang_json_path.exists()
-            
+
             content = json.loads(lang_json_path.read_text())
             assert "zh_CN" in content
 
@@ -629,13 +628,13 @@ class TestFileHandlerLanguagesJson:
         with tempfile.TemporaryDirectory() as tmpdir:
             texts_dir = Path(tmpdir) / "texts"
             texts_dir.mkdir()
-            
+
             existing = ["en_US", "fr_FR"]
             (texts_dir / "languages.json").write_text(json.dumps(existing))
-            
+
             handler = FileHandler({"basic": {}})
             handler.ensure_languages_json(tmpdir)
-            
+
             content = json.loads((texts_dir / "languages.json").read_text())
             assert "zh_CN" in content
             assert "en_US" in content
@@ -646,13 +645,13 @@ class TestFileHandlerLanguagesJson:
         with tempfile.TemporaryDirectory() as tmpdir:
             texts_dir = Path(tmpdir) / "texts"
             texts_dir.mkdir()
-            
+
             existing = ["en_US", "zh_CN"]
             (texts_dir / "languages.json").write_text(json.dumps(existing))
-            
+
             handler = FileHandler({"basic": {}})
             handler.ensure_languages_json(tmpdir)
-            
+
             content = json.loads((texts_dir / "languages.json").read_text())
             # 不应该重复添加
             assert content.count("zh_CN") == 1
@@ -666,7 +665,7 @@ class TestFileHandlerManifestUpdate:
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir) / "TestBP"
             bp_folder.mkdir()
-            
+
             manifest = {
                 "format_version": 2,
                 "header": {
@@ -677,13 +676,13 @@ class TestFileHandlerManifestUpdate:
                 }
             }
             (bp_folder / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
-            
+
             mock_translator = Mock()
             mock_translator.translate_entries.return_value = {"name": "TestBP"}
-            
+
             handler = FileHandler({"basic": {}})
             handler.update_manifest_metadata(str(bp_folder), None, mock_translator)
-            
+
             updated = json.loads((bp_folder / "manifest.json").read_text(encoding='utf-8'))
             assert "header" in updated
 
@@ -692,7 +691,7 @@ class TestFileHandlerManifestUpdate:
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir) / "TestBP"
             bp_folder.mkdir()
-            
+
             manifest = {
                 "format_version": 2,
                 "header": {
@@ -702,10 +701,10 @@ class TestFileHandlerManifestUpdate:
                 }
             }
             (bp_folder / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
-            
+
             handler = FileHandler({"basic": {}})
             handler.update_manifest_metadata(str(bp_folder), None, None)
-            
+
             updated = json.loads((bp_folder / "manifest.json").read_text(encoding='utf-8'))
             # 应该使用文件夹名称
             assert "header" in updated
@@ -715,10 +714,10 @@ class TestFileHandlerManifestUpdate:
         with tempfile.TemporaryDirectory() as tmpdir:
             bp_folder = Path(tmpdir) / "TestBP"
             bp_folder.mkdir()
-            
+
             manifest = {"format_version": 2}
             (bp_folder / "manifest.json").write_text(json.dumps(manifest), encoding='utf-8')
-            
+
             handler = FileHandler({"basic": {}})
             # 不应该抛出异常
             handler.update_manifest_metadata(str(bp_folder), None, None)
@@ -740,12 +739,12 @@ class TestFileHandlerRemoveRestoreFolder:
                     }
                 }
                 (Path(tmpdir) / f"block{i}.json").write_text(json.dumps(data))
-            
+
             handler = FileHandler({"basic": {}})
             count = handler.remove_value_from_json_folder(tmpdir)
-            
+
             assert count == 3
-            
+
             # 验证文件内容
             for i in range(3):
                 data = json.loads((Path(tmpdir) / f"block{i}.json").read_text())
@@ -764,12 +763,12 @@ class TestFileHandlerRemoveRestoreFolder:
                     }
                 }
                 (Path(tmpdir) / f"block{i}.json").write_text(json.dumps(data))
-            
+
             handler = FileHandler({"basic": {}})
             count = handler.restore_value_to_json_folder(tmpdir)
-            
+
             assert count == 3
-            
+
             # 验证文件内容
             for i in range(3):
                 data = json.loads((Path(tmpdir) / f"block{i}.json").read_text())
@@ -780,9 +779,9 @@ class TestFileHandlerRemoveRestoreFolder:
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "file.txt").write_text("text content")
             (Path(tmpdir) / "file.json").write_text(json.dumps({"key": "value"}))
-            
+
             handler = FileHandler({"basic": {}})
             count = handler.remove_value_from_json_folder(tmpdir)
-            
+
             # 只处理JSON文件
             assert count == 1

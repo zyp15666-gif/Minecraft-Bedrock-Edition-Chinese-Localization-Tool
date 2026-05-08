@@ -4,14 +4,14 @@
 api/translation_cache.py 单元测试
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
-import time
 import tempfile
-from pathlib import Path
+import time
+
 from api.translation_cache import TranslationCache
 
 
@@ -50,10 +50,10 @@ class TestTranslationCache:
         self.cache.set("hello", "你好")
         self.cache.get("hello")
         self.cache.get("nonexistent")
-        stats = self.cache.get_stats()
-        assert stats['hits'] >= 1
-        assert stats['sets'] >= 1
-        assert stats['size'] >= 1
+        stats = self.cache.get_cache_stats()
+        assert stats["hits"] >= 1
+        assert stats["sets"] >= 1
+        assert stats["memory_cache_size"] >= 1
 
     def test_clear(self):
         self.cache.set("hello", "你好")
@@ -106,19 +106,6 @@ class TestTranslationCacheWithDB:
         self.cache.set("hello", "你好")
         self.cache.close()
         assert not self.cache._writer_running
-
-    def test_save_and_load_from_file(self, tmp_path):
-        self.cache.set("hello", "你好")
-        filepath = tmp_path / "cache_export.json"
-        result = self.cache.save_to_file(str(filepath))
-        assert result is True
-        assert filepath.exists()
-
-        new_cache = TranslationCache(max_size=100)
-        load_result = new_cache.load_from_file(str(filepath))
-        assert load_result is True
-        assert new_cache.get("hello") == "你好"
-
 
 class TestTranslationCacheEdgeCases:
     def test_empty_key(self):

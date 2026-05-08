@@ -7,12 +7,11 @@ FileHandler + Translator 联合集成测试
 使用 mock 隔离外部 API 调用。
 """
 
-import sys
-import os
 import json
-import tempfile
+import os
 import shutil
-from unittest.mock import Mock, patch
+import tempfile
+from unittest.mock import Mock
 
 import pytest
 
@@ -143,7 +142,7 @@ class TestTranslatorMockIntegration:
 
     def test_translate_single_item_lang_key(self, file_handler):
         """测试语言键格式的条目被跳过"""
-        from core.translator import Translator, is_lang_key_format
+        from core.translator import Translator
         mock_api = Mock()
         mock_api.available_apis = []
         mock_api.term_service = None

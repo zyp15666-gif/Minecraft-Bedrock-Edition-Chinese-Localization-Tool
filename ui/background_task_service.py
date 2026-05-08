@@ -9,8 +9,8 @@
 
 import asyncio
 import threading
-from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Callable, Any, Optional
+from concurrent.futures import Future, ThreadPoolExecutor
+from typing import Any, Callable, Optional
 
 import flet as ft
 
@@ -24,7 +24,7 @@ class BackgroundTaskService:
 
     def __init__(self, page: ft.Page, max_workers: int = 4):
         """初始化后台任务服务
-        
+
         Args:
             page: Flet Page实例，用于UI线程调度
             max_workers: 最大工作线程数
@@ -34,7 +34,7 @@ class BackgroundTaskService:
         self.lock = threading.Lock()
         self.active_tasks = 0
         self._shutdown_event = threading.Event()
-        
+
         logger.info(f"后台任务服务已初始化，最大线程数: {max_workers}")
 
     def run(self, fn: Callable, *args,
@@ -113,6 +113,41 @@ class BackgroundTaskService:
 
         return future
 
+    def _show_error_dialog(self, title: str, message: str) -> None:
+        """在主线程上显示错误对话框
+
+        Args:
+            title: 对话框标题
+            message: 错误消息
+        """
+        self._run_on_main_thread(
+            lambda: getattr(self.page, 'show_error_dialog', print)(title, message))
+
+    def _categorize_and_show_error(self, err: Exception) -> None:
+        """根据异常类型分类并显示对应的错误对话框
+
+        Args:
+            err: 异常实例
+        """
+        try:
+            from core.exceptions import (
+                AllAPIsExhaustedError,
+                APIAuthError,
+                APIConnectionError,
+                APIRateLimitError,
+                APITimeoutError,
+            )
+            if isinstance(err, APIAuthError):
+                self._show_error_dialog("API认证失败", str(err))
+            elif isinstance(err, (APITimeoutError, APIConnectionError)):
+                self._show_error_dialog("网络错误", str(err))
+            elif isinstance(err, APIRateLimitError):
+                self._show_error_dialog("请求过于频繁", str(err))
+            else:
+                self._show_error_dialog("操作失败", str(err))
+        except ImportError:
+            pass
+
     def run_with_button_state(
         self, fn: Callable,
         *args,
@@ -155,25 +190,7 @@ class BackgroundTaskService:
             if on_error:
                 on_error(err)
             else:
-                try:
-                    from core.exceptions import (
-                        APIAuthError, APITimeoutError, APIConnectionError,
-                        APIRateLimitError, AllAPIsExhaustedError,
-                    )
-                    if isinstance(err, APIAuthError):
-                        self._run_on_main_thread(
-                            lambda: getattr(self.page, 'show_error_dialog', print)("API认证失败", str(err)))
-                    elif isinstance(err, (APITimeoutError, APIConnectionError)):
-                        self._run_on_main_thread(
-                            lambda: getattr(self.page, 'show_error_dialog', print)("网络错误", str(err)))
-                    elif isinstance(err, APIRateLimitError):
-                        self._run_on_main_thread(
-                            lambda: getattr(self.page, 'show_error_dialog', print)("请求过于频繁", str(err)))
-                    else:
-                        self._run_on_main_thread(
-                            lambda: getattr(self.page, 'show_error_dialog', print)("操作失败", str(err)))
-                except ImportError:
-                    pass
+                self._categorize_and_show_error(err)
 
         def _on_complete():
             _enable()
@@ -186,8 +203,8 @@ class BackgroundTaskService:
             on_complete=_on_complete,
             **kwargs,
         )
-    
-    def run_with_ui_callbacks(self, fn: Callable, 
+
+    def run_with_ui_callbacks(self, fn: Callable,
                               *args,
                               on_progress: Optional[Callable[..., None]] = None,
                               on_log: Optional[Callable[[str], None]] = None,
@@ -196,7 +213,7 @@ class BackgroundTaskService:
                               on_complete: Optional[Callable[[], None]] = None,
                               **kwargs) -> Future:
         """执行后台任务，提供完整的UI回调支持
-        
+
         Args:
             fn: 要执行的后台函数
             *args: 函数参数
@@ -206,7 +223,7 @@ class BackgroundTaskService:
             on_error: 错误回调 (exception)
             on_complete: 完成回调（无论成功失败都会调用）
             **kwargs: 关键字参数
-            
+
         Returns:
             Future对象
         """
@@ -214,24 +231,24 @@ class BackgroundTaskService:
             task_id = id(threading.current_thread())
             try:
                 logger.debug(f"任务 {task_id} 开始执行")
-                
+
                 wrapped_progress = None
                 wrapped_log = None
-                
+
                 if on_progress:
                     def wrapped_progress(*progress_args):
                         self._run_on_main_thread(on_progress, *progress_args)
                 if on_log:
                     def wrapped_log(msg):
                         self._run_on_main_thread(on_log, msg)
-                
+
                 filtered_kwargs = {k: v for k, v in kwargs.items() if k not in ['on_result', 'on_error', 'on_progress', 'on_log', 'on_complete']}
-                
-                result = fn(*args, 
+
+                result = fn(*args,
                             progress_callback=wrapped_progress,
                             log_callback=wrapped_log,
                             **filtered_kwargs)
-                
+
                 if on_result:
                     self._run_on_main_thread(on_result, result)
                 logger.debug(f"任务 {task_id} 执行完成")
@@ -249,7 +266,7 @@ class BackgroundTaskService:
 
         with self.lock:
             self.active_tasks += 1
-        
+
         future = self.executor.submit(wrapper)
         return future
 
@@ -271,12 +288,12 @@ class BackgroundTaskService:
 
     def run_in_executor(self, fn: Callable, *args, **kwargs) -> Future:
         """直接在执行器中运行任务（无回调）
-        
+
         Args:
             fn: 要执行的函数
             *args: 函数参数
             **kwargs: 关键字参数
-            
+
         Returns:
             Future对象
         """
@@ -288,12 +305,12 @@ class BackgroundTaskService:
             finally:
                 with self.lock:
                     self.active_tasks -= 1
-        
+
         return self.executor.submit(wrapper)
 
     def schedule_on_main_thread(self, callback: Callable, *args) -> None:
         """在主线程上调度执行（同步）
-        
+
         Args:
             callback: 要执行的回调函数
             *args: 回调函数参数
@@ -302,7 +319,7 @@ class BackgroundTaskService:
 
     def get_active_task_count(self) -> int:
         """获取当前活跃任务数
-        
+
         Returns:
             活跃任务数量
         """
@@ -311,7 +328,7 @@ class BackgroundTaskService:
 
     def shutdown(self, wait: bool = True) -> None:
         """关闭任务服务
-        
+
         Args:
             wait: 是否等待所有任务完成
         """
@@ -321,7 +338,7 @@ class BackgroundTaskService:
 
     def is_shutting_down(self) -> bool:
         """检查服务是否正在关闭
-        
+
         Returns:
             True如果正在关闭
         """
@@ -330,10 +347,10 @@ class BackgroundTaskService:
 
 class SafeUIAccess:
     """UI安全访问装饰器/上下文管理器"""
-    
+
     def __init__(self, page: ft.Page):
         self.page = page
-        
+
     def __call__(self, func: Callable) -> Callable:
         """装饰器模式，确保函数在主线程执行"""
         def wrapper(*args, **kwargs):
@@ -358,11 +375,11 @@ _global_task_service = None
 
 def init_global_task_service(page: ft.Page, max_workers: int = 4) -> BackgroundTaskService:
     """初始化全局任务服务
-    
+
     Args:
         page: Flet Page实例
         max_workers: 最大工作线程数
-        
+
     Returns:
         全局任务服务实例
     """
@@ -373,7 +390,7 @@ def init_global_task_service(page: ft.Page, max_workers: int = 4) -> BackgroundT
 
 def get_global_task_service() -> Optional[BackgroundTaskService]:
     """获取全局任务服务
-    
+
     Returns:
         全局任务服务实例，如果未初始化返回None
     """

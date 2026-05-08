@@ -4,11 +4,13 @@
 core/quality_checker.py 单元测试
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
+
 from core.quality_checker import TranslationQualityChecker
 
 

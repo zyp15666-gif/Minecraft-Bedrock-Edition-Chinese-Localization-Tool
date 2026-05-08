@@ -4,25 +4,25 @@
 批量还原value的用例
 """
 
-import os
 import json
-from typing import Dict, Optional, Callable, Any
+import os
+from typing import Any, Callable, Dict, Optional
 
 
 class BatchRestoreValueUseCase:
     """批量还原value的用例类"""
-    
+
     def __init__(self, file_handler, config):
         """
         初始化用例
-        
+
         Args:
             file_handler: FileHandler实例
             config: 配置字典
         """
         self.file_handler = file_handler
         self.config = config
-    
+
     def execute(
         self,
         folder_path: str,
@@ -31,23 +31,23 @@ class BatchRestoreValueUseCase:
     ) -> Dict[str, Any]:
         """
         执行批量还原value操作
-        
+
         Args:
             folder_path: 目标文件夹路径
             progress_callback: 进度回调函数
             log_callback: 日志回调函数
-            
+
         Returns:
             操作结果
         """
         def log(msg):
             if log_callback:
                 log_callback(msg)
-        
+
         def progress(value, remaining_count=0, remaining_time=0):
             if progress_callback:
                 progress_callback(value, remaining_count, remaining_time)
-        
+
         try:
             # 检查路径
             if not folder_path or not os.path.exists(folder_path):

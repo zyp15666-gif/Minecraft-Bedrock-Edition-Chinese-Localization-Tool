@@ -8,7 +8,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 from core.log_manager import get_logger
 
@@ -44,11 +44,11 @@ def build_app_container(
     Returns:
         AppContainer 实例，包含所有已初始化的组件
     """
-    from config.config_manager import ConfigManager
     from api.api_manager import APIManager
-    from core.translator import Translator
-    from core.file_handler import FileHandler
+    from config.config_manager import ConfigManager
     from core.application_service import ApplicationService
+    from core.file_handler import FileHandler
+    from core.translator import Translator
 
     config_manager = ConfigManager()
     config = config_manager.load_config()

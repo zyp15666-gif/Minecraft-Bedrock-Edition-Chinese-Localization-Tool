@@ -4,11 +4,12 @@
 术语加载器 - 负责加载内置/外部词典、拼写修正、初始化自动机
 """
 
-import re
 import json
 import os
+import re
 import time
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
+
 from core.log_manager import get_logger
 
 try:
@@ -26,7 +27,7 @@ class TerminologyLoader:
 
     def __init__(self, dict_path: Optional[str] = None, config: Optional[Dict[str, Any]] = None):
         """初始化术语加载器
-        
+
         Args:
             dict_path: 术语词典文件路径，None表示使用内置词典
             config: 配置字典，用于读取高级配置
@@ -39,20 +40,20 @@ class TerminologyLoader:
         self.clean_terms: Dict[str, str] = {}
         self.clean_lower_terms: Dict[str, str] = {}
         self.spelling_mistakes: Dict[str, str] = {}
-        
+
         # 从配置中读取自动机配置
         config = config or {}
         advanced_config = config.get('advanced', {})
         terminology_config = advanced_config.get('terminology', {})
         self.use_automaton = terminology_config.get('use_automaton', AHOCORASICK_AVAILABLE)
-        
+
         # 加载内置术语
         self.load_default_terms()
-        
+
         # 如果提供了词典文件路径，合并外部词典
         if dict_path:
             self.merge_file(dict_path)
-        
+
         # 构建清洗后的术语映射
         self._build_clean_terms()
 
@@ -132,7 +133,7 @@ class TerminologyLoader:
         if self.check_for_updates():
             return self.hot_reload()
         return False
-        
+
         # 加载拼写修正
         self._load_spelling_corrections()
 
@@ -241,7 +242,7 @@ class TerminologyLoader:
             'Drones': '无人机',
             'Traps': '陷阱'
         }
-        
+
         self.terms.update(minecraft_terms)
         logger.info(f"已加载内置 Minecraft 术语词典，共 {len(minecraft_terms)} 条。")
 
@@ -274,9 +275,9 @@ class TerminologyLoader:
                 for key, value in external_terms.items():
                     if isinstance(value, str) and not (value.startswith('[') and value.endswith(']')):
                         filtered_terms[key] = value
-                
+
                 logger.info(f"已加载JSON术语词典，原始 {len(external_terms)} 条，过滤后 {len(filtered_terms)} 条。")
-                
+
                 for key, value in filtered_terms.items():
                     if key not in self.terms:
                         self.terms[key] = value
@@ -291,9 +292,9 @@ class TerminologyLoader:
                                 if not (value.startswith('[') and value.endswith(']')):
                                     if key not in self.terms:
                                         self.terms[key] = value
-                
+
                 logger.info(f"已加载外部术语词典，共 {len(self.terms)} 条。")
-                
+
         except Exception as e:
             logger.warning(f"加载外部术语词典失败: {e}，继续使用内置词典。")
 
@@ -306,11 +307,11 @@ class TerminologyLoader:
                 clean_key = key[:hash_pos]
             else:
                 clean_key = key
-            
+
             clean_key = clean_key.replace('\t', ' ')
             clean_key = re.sub(r'\s+', ' ', clean_key).strip()
             self.clean_terms[clean_key] = value
-        
+
         self.lower_terms = {k.lower(): v for k, v in self.terms.items()}
         self.clean_lower_terms = {k.lower(): v for k, v in self.clean_terms.items()}
 
@@ -318,7 +319,7 @@ class TerminologyLoader:
         """构建Aho-Corasick自动机用于快速术语匹配"""
         if not AHOCORASICK_AVAILABLE or not self.use_automaton:
             return
-        
+
         try:
             self.automaton = ahocorasick.Automaton()
             for term in self.terms.keys():
@@ -335,7 +336,7 @@ class TerminologyLoader:
         if file_path is None:
             from core.utils import resolve_resource_path
             file_path = str(resolve_resource_path('resources/spelling_corrections.json'))
-        
+
         default_mistakes = {
             'ereramic': 'ceramic',
             'paintin ': 'painting ',
@@ -355,7 +356,7 @@ class TerminologyLoader:
             'choppin ': 'chopping ',
             'breedin ': 'breeding '
         }
-        
+
         try:
             if os.path.exists(file_path):
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -371,7 +372,7 @@ class TerminologyLoader:
 
     def add_spelling_correction(self, mistake: str, correction: str) -> None:
         """添加新的拼写修正规则
-        
+
         Args:
             mistake: 错误拼写
             correction: 正确拼写

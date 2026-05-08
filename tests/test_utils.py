@@ -4,19 +4,19 @@
 core/utils.py 单元测试
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
 from core.utils import (
-    split_by_color_codes,
+    CallbackWrapper,
+    contains_color_codes,
     has_color_codes,
     normalize_game_text,
-    contains_color_codes,
     normalize_text_for_cache,
     sanitize_log_message,
-    CallbackWrapper,
+    split_by_color_codes,
 )
 
 

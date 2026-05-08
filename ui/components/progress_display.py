@@ -12,8 +12,9 @@
     progress_section = progress_display.create()
 """
 
+from typing import Any, Callable, Dict, Optional
+
 import flet as ft
-from typing import Callable, Dict, Any, Optional
 
 
 class ProgressDisplay:

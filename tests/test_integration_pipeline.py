@@ -7,16 +7,13 @@
 使用 mock 隔离外部依赖，不调用真实 API。
 """
 
-import sys
-import os
 import json
-import tempfile
+import os
 import shutil
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+import tempfile
+from unittest.mock import Mock, patch
 
 import pytest
-
 
 # ──────────── Fixtures ────────────
 
@@ -112,26 +109,17 @@ class TestPipelineInitialization:
         assert pipeline is not None
         assert not pipeline.initialized
 
-    @patch('core.pipeline.ConfigManager')
     @patch('core.pipeline.APIManager')
-    def test_pipeline_initialize_with_mocks(self, mock_api_mgr, mock_cfg_mgr, mock_config):
+    def test_pipeline_initialize_with_mocks(self, mock_api_mgr, mock_config):
         """测试带 mock 的管道初始化"""
-        # 配置 mock
-        mock_cfg_mgr_instance = Mock()
-        mock_cfg_mgr_instance.load_config.return_value = mock_config
-        mock_cfg_mgr.return_value = mock_cfg_mgr_instance
-
         mock_api_mgr_instance = Mock()
         mock_api_mgr_instance.available_apis = []
         mock_api_mgr_instance.detect_available_apis.return_value = []
         mock_api_mgr.return_value = mock_api_mgr_instance
 
-        # 注意：在 mock 环境下，ConfigManager 和 APIManager 会返回 Mock 对象
-        # 所以 initialize() 可能会失败。此测试验证框架能在 mock 下正常工作
         try:
             from core.pipeline import TranslationPipeline
             pipeline = TranslationPipeline()
-            # 不调用 initialize()，因为真实依赖无法在纯 mock 下初始化
             assert pipeline is not None
         except Exception:
             pass
@@ -352,7 +340,7 @@ class TestBackupManagementIntegration:
     def test_backup_restore(self, temp_bp_folder):
         """测试备份恢复功能（基本流程验证）"""
         from core.use_cases.backup_management import BackupManager
-        backup_mgr = BackupManager()
+        BackupManager()
 
         # 创建备份
         from core.file_handler import FileHandler

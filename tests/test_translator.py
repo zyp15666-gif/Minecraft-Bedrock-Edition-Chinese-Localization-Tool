@@ -10,8 +10,8 @@ Translator 单元测试
 - 术语匹配
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
+
 from core.translator import Translator, is_lang_key_format
 
 
@@ -20,18 +20,18 @@ class TestLangKeyFormat:
 
     def test_is_lang_key_format_valid(self):
         """测试有效语言键格式"""
-        assert is_lang_key_format("item.sgs_farm:breadcrumbs.name") == True
-        assert is_lang_key_format("tile.minecraft:stone.name") == True
-        assert is_lang_key_format("entity.zombie:zombie.name") == True
-        assert is_lang_key_format("sgs_farm:itemGroup.name") == True
+        assert is_lang_key_format("item.sgs_farm:breadcrumbs.name")
+        assert is_lang_key_format("tile.minecraft:stone.name")
+        assert is_lang_key_format("entity.zombie:zombie.name")
+        assert is_lang_key_format("sgs_farm:itemGroup.name")
 
     def test_is_lang_key_format_invalid(self):
         """测试无效语言键格式"""
-        assert is_lang_key_format("Hello World") == False
-        assert is_lang_key_format("apple") == False
-        assert is_lang_key_format("item.") == False
-        assert is_lang_key_format(".name") == False
-        assert is_lang_key_format("") == False
+        assert not is_lang_key_format("Hello World")
+        assert not is_lang_key_format("apple")
+        assert not is_lang_key_format("item.")
+        assert not is_lang_key_format(".name")
+        assert not is_lang_key_format("")
 
 
 class TestTranslator:
@@ -41,9 +41,9 @@ class TestTranslator:
         """测试初始化"""
         mock_api_manager = Mock()
         mock_api_manager.available_apis = []
-        
+
         translator = Translator(mock_api_manager, {"basic": {"namespace": "test"}})
-        
+
         assert translator is not None
         assert translator.api_manager == mock_api_manager
         assert translator.max_retries == 2  # 默认值
@@ -53,7 +53,7 @@ class TestTranslator:
         api_mgr = Mock()
         api_mgr.available_apis = []
         translator = Translator(api_mgr, {"basic": {"namespace": "test"}})
-        
+
         result = translator.translate_entries({})
         assert result == {}
 
@@ -64,9 +64,9 @@ class TestTranslator:
         api_mgr.term_service = Mock()
         api_mgr.term_service.get_translation_original.return_value = "术语翻译"
         api_mgr.term_service.get_translation_clean.return_value = None
-        
+
         translator = Translator(api_mgr, {"basic": {"namespace": "test", "max_retries": 1}})
-        
+
         result = translator.translate_single_item(("key", "text", 1, set()))
         assert result == ("key", "术语翻译")
 
@@ -77,9 +77,9 @@ class TestTranslator:
         api_mgr.term_service = Mock()
         api_mgr.term_service.get_translation_original.return_value = None
         api_mgr.term_service.get_translation_clean.return_value = None
-        
+
         translator = Translator(api_mgr, {"basic": {"namespace": "test"}})
-        
+
         # 使用有效的语言键格式
         lang_key = "item.sgs_farm:test.name"
         result = translator.translate_single_item(("key", lang_key, 1, {lang_key}))
@@ -94,9 +94,9 @@ class TestTranslator:
         api_mgr.term_service = Mock()
         api_mgr.term_service.get_translation_original.return_value = None
         api_mgr.term_service.get_translation_clean.return_value = None
-        
+
         translator = Translator(api_mgr, {"basic": {"namespace": "test"}})
-        
+
         result = translator.translate_single_item(("key", "Hello World", 1, set()))
         assert result == ("key", "Hello World")
 
@@ -106,13 +106,13 @@ class TestTranslator:
         api_mgr.available_apis = [{"name": "test_api"}]
         api_mgr.get_available_apis.return_value = [{"name": "test_api"}]
         api_mgr.get_next_api.return_value = {"name": "test_api"}
-        api_mgr.translate_with_api.return_value = "你好"
+        api_mgr.translate_text.return_value = "你好"
         api_mgr.term_service = Mock()
         api_mgr.term_service.get_translation_original.return_value = None
         api_mgr.term_service.get_translation_clean.return_value = None
-        
+
         translator = Translator(api_mgr, {"basic": {"namespace": "test"}})
-        
+
         result = translator.translate_single_item(("key", "Hello", 1, set()))
         assert result == ("key", "你好")
 
@@ -123,15 +123,15 @@ class TestTranslator:
         api_mgr.term_service = Mock()
         api_mgr.term_service.get_translation_original.return_value = None
         api_mgr.term_service.get_translation_clean.return_value = None
-        
+
         translator = Translator(api_mgr, {"basic": {"namespace": "test"}})
-        
+
         # 英文比例高的情况
-        assert translator._is_poor_quality("Hello", "Hello") == True
-        assert translator._is_poor_quality("Hello World", "Hello World") == True
-        
+        assert translator._is_poor_quality("Hello", "Hello")
+        assert translator._is_poor_quality("Hello World", "Hello World")
+
         # 正常翻译
-        assert translator._is_poor_quality("Hello", "你好") == False
+        assert not translator._is_poor_quality("Hello", "你好")
 
 
 class TestTranslatorDictTranslation:
@@ -146,9 +146,9 @@ class TestTranslatorDictTranslation:
         api_mgr.term_service.get_translation_original.return_value = None
         api_mgr.term_service.get_translation_clean.return_value = None
         api_mgr.translate_text.return_value = "翻译1"
-        
+
         translator = Translator(api_mgr, {"basic": {"namespace": "test"}})
-        
+
         result = translator.translate_dict_single({"key1": "text1"})
         assert result == {"key1": "翻译1"}
 
@@ -160,10 +160,10 @@ class TestTranslatorDictTranslation:
         api_mgr.term_service = Mock()
         api_mgr.term_service.get_translation_original.return_value = None
         api_mgr.term_service.get_translation_clean.return_value = None
-        api_mgr.translate_with_api.return_value = "翻译结果"
-        
+        api_mgr.translate_text.return_value = "翻译结果"
+
         translator = Translator(api_mgr, {"basic": {"namespace": "test"}})
-        
+
         result = translator.translate_dict_parallel({"key1": "text1", "key2": "text2"})
         assert "key1" in result
         assert "key2" in result
@@ -190,9 +190,9 @@ class TestTranslatorFallback:
         api_mgr.term_service.get_translation_clean.return_value = None
         api_mgr.translate_with_api.return_value = "Hello"  # 质量不合格，返回英文
         api_mgr.multi_api_translate.return_value = "你好"  # 云端翻译
-        
+
         translator = Translator(api_mgr, {"basic": {"namespace": "test", "local_first_fallback": True}})
-        
+
         result = translator.translate_single_item(("key", "Hello", 1, set()))
         # 由于质量检查会触发降级，应该返回云端翻译结果
         assert result[0] == "key"
@@ -212,8 +212,8 @@ class TestTranslatorFallback:
         api_mgr.term_service = Mock()
         api_mgr.term_service.get_translation_original.return_value = None
         api_mgr.term_service.get_translation_clean.return_value = None
-        
+
         translator = Translator(api_mgr, {"basic": {"namespace": "test", "use_multi_api_validation": True}})
-        
+
         result = translator.translate_single_item(("key", "Hello", 1, set()))
         assert result == ("key", "最佳翻译")

@@ -5,10 +5,11 @@
 """
 
 import re
-from typing import Dict, Optional, Tuple
 from collections import OrderedDict
+from typing import Dict, Optional, Tuple
 
 from core.log_manager import get_logger
+
 from .loader import TerminologyLoader
 
 logger = get_logger(__name__)
@@ -119,13 +120,59 @@ class TerminologyMatcher:
         self._add_to_cache(text, result)
         return result
 
+    def _normalize_placeholder_prefix(self, prefix: str) -> str:
+        """标准化占位符前缀
+
+        Args:
+            prefix: 原始前缀字符串
+
+        Returns:
+            标准化后的前缀
+        """
+        return 'TERM' if prefix in ['TERM', '术语'] else prefix
+
+    def _build_placeholder(self, prefix: str, num: str) -> str:
+        """构建占位符字符串
+
+        Args:
+            prefix: 前缀
+            num: 编号
+
+        Returns:
+            完整的占位符字符串
+        """
+        normalized_prefix = self._normalize_placeholder_prefix(prefix)
+        return f"{self.placeholder_prefix}{normalized_prefix}_{num}{self.placeholder_suffix}"
+
+    def _replace_remaining_placeholders(self, text: str) -> str:
+        """替换文本中残留的未处理占位符
+
+        Args:
+            text: 包含残留占位符的文本
+
+        Returns:
+            处理后的文本
+        """
+        remaining_pattern = re.compile(r'\[(?:TERM|术语)_\d+\]|\*\*术语\*\*|\[\[(?:TERM|术语)_\d+\]\]')
+        if not remaining_pattern.search(text):
+            return text
+
+        logger.warning(f"检测到未处理的占位符: {text}")
+
+        for term, trans in self.loader.terms.items():
+            if len(term) <= 20:
+                text = re.sub(
+                    r'\b' + re.escape(term) + r'\b', trans, text, flags=re.IGNORECASE)
+
+        return remaining_pattern.sub('', text)
+
     def postprocess(self, text: str, placeholder_map: Optional[Dict[str, str]] = None) -> str:
         """后处理文本，还原占位符为术语翻译
-        
+
         Args:
             text: 包含占位符的文本
             placeholder_map: 占位符映射字典
-        
+
         Returns:
             后处理后的文本，占位符被还原为术语翻译
         """
@@ -133,7 +180,7 @@ class TerminologyMatcher:
             return text
 
         processed_text = text
-        
+
         if placeholder_map:
             for placeholder, translation in placeholder_map.items():
                 processed_text = processed_text.replace(placeholder, translation)
@@ -145,8 +192,7 @@ class TerminologyMatcher:
         def replace_single_bracket(match):
             prefix = match.group(1)
             num = match.group(2)
-            normalized_prefix = 'TERM' if prefix in ['TERM', '术语'] else prefix
-            placeholder = f"{self.placeholder_prefix}{normalized_prefix}_{num}{self.placeholder_suffix}"
+            placeholder = self._build_placeholder(prefix, num)
             if placeholder_map and placeholder in placeholder_map:
                 return placeholder_map[placeholder]
             else:
@@ -160,7 +206,7 @@ class TerminologyMatcher:
                 return match.group(0)
 
         def replace_markdown(match):
-            term_type = match.group(1)
+            match.group(1)
             if placeholder_map:
                 for placeholder, translation in placeholder_map.items():
                     if '术语' in placeholder:
@@ -170,8 +216,7 @@ class TerminologyMatcher:
         def replace_double_bracket(match):
             prefix = match.group(1)
             num = match.group(2)
-            normalized_prefix = 'TERM' if prefix in ['TERM', '术语'] else prefix
-            placeholder = f"{self.placeholder_prefix}{normalized_prefix}_{num}{self.placeholder_suffix}"
+            placeholder = self._build_placeholder(prefix, num)
             if placeholder_map and placeholder in placeholder_map:
                 return placeholder_map[placeholder]
             return match.group(0)
@@ -180,25 +225,16 @@ class TerminologyMatcher:
         processed_text = pattern2.sub(replace_markdown, processed_text)
         processed_text = pattern3.sub(replace_double_bracket, processed_text)
 
-        remaining_pattern = re.compile(r'\[(?:TERM|术语)_\d+\]|\*\*术语\*\*|\[\[(?:TERM|术语)_\d+\]\]')
-        if remaining_pattern.search(processed_text):
-            logger.warning(f"检测到未处理的占位符: {processed_text}")
-
-            for term, trans in self.loader.terms.items():
-                if len(term) <= 20:
-                    processed_text = re.sub(
-                        r'\b' + re.escape(term) + r'\b', trans, processed_text, flags=re.IGNORECASE)
-
-            processed_text = remaining_pattern.sub('', processed_text)
+        processed_text = self._replace_remaining_placeholders(processed_text)
 
         return processed_text
 
     def get_translation(self, text: str) -> Optional[str]:
         """获取术语翻译（两步匹配策略）
-        
+
         Args:
             text: 待翻译文本
-        
+
         Returns:
             翻译结果，如果未找到返回None
         """
@@ -209,10 +245,10 @@ class TerminologyMatcher:
 
     def get_translation_original(self, text: str) -> Optional[str]:
         """使用原始文本匹配（不区分大小写），并标准化换行符和空白
-        
+
         Args:
             text: 待匹配文本
-        
+
         Returns:
             翻译结果，如果未找到返回None
         """
@@ -239,10 +275,10 @@ class TerminologyMatcher:
 
     def get_translation_clean(self, text: str) -> Optional[str]:
         """使用清洗后的文本匹配（不区分大小写）
-        
+
         Args:
             text: 待匹配文本
-        
+
         Returns:
             翻译结果，如果未找到返回None
         """
@@ -254,10 +290,10 @@ class TerminologyMatcher:
 
     def has_any_term(self, text: str) -> bool:
         """快速检查文本是否包含任意术语（公开接口）
-        
+
         Args:
             text: 待检查文本
-        
+
         Returns:
             True如果文本包含至少一个术语，否则False
         """
@@ -265,10 +301,10 @@ class TerminologyMatcher:
 
     def _has_any_term(self, text: str) -> bool:
         """快速检查文本是否包含任意术语（不区分大小写）
-        
+
         Args:
             text: 待检查文本
-        
+
         Returns:
             True如果文本包含至少一个术语，否则False
         """
@@ -282,10 +318,10 @@ class TerminologyMatcher:
 
     def fix_spelling(self, text: str) -> str:
         """修复常见的拼写错误
-        
+
         Args:
             text: 原始文本
-        
+
         Returns:
             修复后的文本
         """

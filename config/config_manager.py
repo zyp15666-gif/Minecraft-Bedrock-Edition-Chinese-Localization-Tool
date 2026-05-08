@@ -8,23 +8,25 @@
 - 加密后的数据只能由当前 Windows 用户解密
 """
 
-import os
-import sys
-import yaml
-import re
-import tempfile
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, Any, List, Optional
-
-from config.config_schema import validate_config as schema_validate
-from api.api_defaults import SUPPORTED_PROVIDER_KEYS
-from core.secure_storage import get_secure_storage, store_api_key, retrieve_api_key
 import logging
+import os
+import re
+import sys
+import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
+
+from api.api_defaults import SUPPORTED_PROVIDER_KEYS
+from config.config_schema import validate_config as schema_validate
+from core.app_paths import APP_FOLDER_NAME, get_documents_base
+from core.secure_storage import get_secure_storage, retrieve_api_key, store_api_key
 
 logger = logging.getLogger(__name__)
 
-CONFIG_VERSION = "2.1"
+CONFIG_VERSION = "2.2"
 CONFIG_VERSION_KEY = "_config_version"
 
 
@@ -44,8 +46,8 @@ class ConfigManager:
         - 打包环境：使用用户的Documents文件夹（兼容旧版Windows）
         """
         if getattr(sys, 'frozen', False):
-            documents_dir = self._find_valid_documents_path()
-            app_config_dir = documents_dir / "Minecraft基岩版汉化工具"
+            documents_dir = get_documents_base()
+            app_config_dir = documents_dir / APP_FOLDER_NAME
             app_config_dir.mkdir(parents=True, exist_ok=True)
             config_path = app_config_dir / "config.yml"
             logger.info(f"打包环境 - 配置文件路径: {config_path}")
@@ -56,16 +58,22 @@ class ConfigManager:
             return config_path
 
     def _find_valid_documents_path(self) -> Path:
-        """查找有效的 Documents 文件夹路径"""
-        user_profile = os.environ.get('USERPROFILE', os.path.expanduser("~"))
-        possible_paths = [
-            Path(user_profile) / "Documents",
-            Path(user_profile) / "My Documents"
-        ]
-        for path in possible_paths:
-            if path.exists() and path.is_dir():
-                return path
-        return Path(os.path.expanduser("~")) / "Documents"
+        """查找有效的 Documents 文件夹路径（兼容测试与旧代码）。"""
+        return get_documents_base()
+
+    def _apply_performance_preset(self, config: Dict[str, Any]) -> None:
+        """根据 basic.performance_preset 覆盖并发与批大小（small / balanced / large）。"""
+        basic = config.get("basic") or {}
+        preset = (basic.get("performance_preset") or "").strip().lower()
+        if not preset:
+            return
+        from config.performance_presets import PRESETS
+        if preset not in PRESETS:
+            logger.warning("[ConfigManager] 未知 performance_preset=%s，忽略", preset)
+            return
+        merged = dict(PRESETS[preset])
+        config.setdefault("basic", {}).update(merged)
+        logger.info("[ConfigManager] 已应用性能预设 %s: %s", preset, merged)
 
     def _load_default_config(self) -> Dict[str, Any]:
         """加载默认配置"""
@@ -83,10 +91,11 @@ class ConfigManager:
                 "update_batch_size": 10,
                 "ast_cache_maxsize": 128,
                 "base_delay": 1.0,
-                "log_level": "INFO",  # DEBUG, INFO, WARNING, ERROR  
-                "local_model_use_prompt": True,   
+                "log_level": "INFO",  # DEBUG, INFO, WARNING, ERROR
+                "local_model_use_prompt": True,
                 "use_multi_api_validation": False, # 默认关闭多重验证
-                "local_first_fallback": True   # 是否启用本地优先 + 质量降级
+                "local_first_fallback": True,   # 是否启用本地优先 + 质量降级
+                "performance_preset": "",  # 空=不应用；可选 small | balanced | large
             },
             "rate_limit": {
                 "default": 0.15,
@@ -101,6 +110,12 @@ class ConfigManager:
                 "update_check_interval_days": 30,
                 "update_url": "",
                 "backup_before_update": True
+            },
+            "update": {
+                "check_on_startup": False,  # 启动时检查更新（关闭以避免网络问题）
+                "check_interval_hours": 24,  # 检查间隔（小时）
+                "repo_owner": "",  # GitHub 仓库所有者（留空则使用默认）
+                "repo_name": ""    # GitHub 仓库名（留空则使用默认）
             },
             "author": {
                 "name": "Minecraft基岩版汉化工具",
@@ -169,20 +184,6 @@ class ConfigManager:
         r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
     def validate_config(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
-        """校验配置文件格式和值
-
-        Args:
-            config: 待校验的配置字典，None则使用当前配置
-
-        Returns:
-            校验结果字典:
-            {
-                "valid": bool,
-                "errors": List[str],
-                "warnings": List[str],
-                "fixed_config": Dict
-            }
-        """
         if config is None:
             config = self.config
 
@@ -190,6 +191,17 @@ class ConfigManager:
         warnings = []
         fixed_config = dict(config)
 
+        self._validate_sections(fixed_config, errors, warnings)
+        self._validate_api_providers(fixed_config, errors, warnings)
+
+        return {
+            "valid": len(errors) == 0,
+            "errors": errors,
+            "warnings": warnings,
+            "fixed_config": fixed_config,
+        }
+
+    def _validate_sections(self, fixed_config: dict, errors: list, warnings: list):
         for section_name, schema in self.CONFIG_SCHEMA.items():
             if section_name not in fixed_config:
                 if section_name in ("basic", "rate_limit"):
@@ -225,8 +237,8 @@ class ConfigManager:
                                 f"[{min_val}, {max_val}]，已修正为 {clamped}")
                             section[key] = clamped
 
-        api_providers = SUPPORTED_PROVIDER_KEYS
-        for provider in api_providers:
+    def _validate_api_providers(self, fixed_config: dict, errors: list, warnings: list):
+        for provider in SUPPORTED_PROVIDER_KEYS:
             apis = fixed_config.get(provider, [])
             if not isinstance(apis, list):
                 warnings.append(f"配置项 [{provider}] 应为列表格式")
@@ -242,13 +254,6 @@ class ConfigManager:
                     if not self._URL_PATTERN.match(api_url):
                         warnings.append(f"配置项 [{provider}][{i}] 的 api_url 格式可能无效: {api_url[:50]}")
 
-        return {
-            "valid": len(errors) == 0,
-            "errors": errors,
-            "warnings": warnings,
-            "fixed_config": fixed_config,
-        }
-
     def load_config(self, raise_on_error: bool = False) -> Dict[str, Any]:
         """加载配置文件
 
@@ -262,6 +267,7 @@ class ConfigManager:
                 self._merge_configs(self.config, config)
                 self._strip_runtime_paths(self.config)
                 self._resolve_env_variables(self.config)
+                self._apply_performance_preset(self.config)
 
                 self._load_api_keys_from_secure_storage()
 
@@ -299,7 +305,7 @@ class ConfigManager:
     def _load_api_keys_from_secure_storage(self):
         """从安全存储加载 API Key 到配置中"""
         try:
-            secure_storage = get_secure_storage()
+            get_secure_storage()
             api_providers = SUPPORTED_PROVIDER_KEYS
 
             for provider in api_providers:
@@ -337,6 +343,9 @@ class ConfigManager:
         if current_version < "2.1":
             self._migrate_v2_to_v2_1()
 
+        if current_version < "2.2":
+            self._migrate_v2_1_to_v2_2()
+
         self.config[CONFIG_VERSION_KEY] = CONFIG_VERSION
         logger.info(f"[ConfigManager] 配置迁移完成，当前版本: {CONFIG_VERSION}")
 
@@ -355,6 +364,17 @@ class ConfigManager:
                 logger.info(f"[ConfigManager] 已迁移 {migrated} 个 API Key 到安全存储")
         except Exception as e:
             logger.warning(f"[ConfigManager] API Key 迁移失败: {e}")
+
+    def _migrate_v2_1_to_v2_2(self):
+        """从 v2.1 迁移到 v2.2 - 添加更新检查配置节"""
+        if 'update' not in self.config:
+            self.config['update'] = {
+                'check_on_startup': False,
+                'check_interval_hours': 24,
+                'repo_owner': '',
+                'repo_name': ''
+            }
+            logger.info("[ConfigManager] 已添加更新检查配置节")
 
     def _remove_api_keys_from_config(self):
         """从配置中移除 API Key（已迁移到安全存储）"""
@@ -402,7 +422,7 @@ class ConfigManager:
                 if not isinstance(api_entry, dict):
                     continue
                 api_key = api_entry.get('api_key', '')
-                api_name = api_entry.get('name', provider)
+                api_entry.get('name', provider)
 
                 is_placeholder = (
                     not api_key or
@@ -478,7 +498,6 @@ class ConfigManager:
         config_to_save = self._prepare_config_for_save()
 
         temp_fd = None
-        temp_path = None
 
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -486,7 +505,7 @@ class ConfigManager:
             if create_backup and self.config_path.exists():
                 backup_path = self._create_backup()
                 if not backup_path:
-                    logger.warning(f"[ConfigManager] 警告：无法创建配置备份")
+                    logger.warning("[ConfigManager] 警告：无法创建配置备份")
 
             temp_fd, temp_path_str = tempfile.mkstemp(
                 suffix='.yml.tmp',
@@ -517,7 +536,7 @@ class ConfigManager:
                 logger.info(f"[ConfigManager] 配置已保存 ({file_size} 字节)")
                 return True
             else:
-                logger.error(f"[ConfigManager] 保存配置失败：文件不存在")
+                logger.error("[ConfigManager] 保存配置失败：文件不存在")
                 return False
 
         except PermissionError as e:
@@ -672,7 +691,7 @@ class ConfigManager:
             backup_dir = self.config_path.parent / "backups"
 
             if not backup_dir.exists():
-                logger.warning(f"[ConfigManager] 备份目录不存在")
+                logger.warning("[ConfigManager] 备份目录不存在")
                 return False
 
             if backup_name:
@@ -684,7 +703,7 @@ class ConfigManager:
                     reverse=True
                 )
                 if not backup_files:
-                    logger.warning(f"[ConfigManager] 没有找到备份文件")
+                    logger.warning("[ConfigManager] 没有找到备份文件")
                     return False
                 backup_path = backup_files[0]
 
@@ -700,7 +719,7 @@ class ConfigManager:
                 logger.info(f"[ConfigManager] 已从备份恢复配置: {backup_path.name}")
                 return True
             else:
-                logger.error(f"[ConfigManager] 备份文件内容无效")
+                logger.error("[ConfigManager] 备份文件内容无效")
                 return False
 
         except Exception as e:
@@ -753,11 +772,11 @@ class ConfigManager:
 
     def import_config(self, filepath: str, merge: bool = True) -> bool:
         """从指定文件导入配置
-        
+
         Args:
             filepath: 导入文件路径
             merge: 是否合并到当前配置（True）或替换当前配置（False）
-            
+
         Returns:
             是否成功
         """
@@ -768,7 +787,7 @@ class ConfigManager:
 
             with open(filepath, 'r', encoding='utf-8') as f:
                 imported_config = yaml.safe_load(f)
-            
+
             if merge:
                 # 合并配置
                 self._merge_configs(self.config, imported_config)
@@ -846,26 +865,26 @@ class ConfigManager:
         """
         required_fields = {'id', 'label', 'icon', 'enabled', 'order'}
         if not isinstance(button, dict):
-            logger.error(f"[ConfigManager] 按钮配置无效：不是字典类型")
+            logger.error("[ConfigManager] 按钮配置无效：不是字典类型")
             return None
         missing_fields = required_fields - set(button.keys())
         if missing_fields:
             logger.error(f"[ConfigManager] 按钮配置缺少字段: {missing_fields}")
             return None
         if not isinstance(button.get('id'), str) or not button['id']:
-            logger.error(f"[ConfigManager] 按钮配置 id 无效")
+            logger.error("[ConfigManager] 按钮配置 id 无效")
             return None
         if not isinstance(button.get('label'), str) or not button['label']:
-            logger.error(f"[ConfigManager] 按钮配置 label 无效")
+            logger.error("[ConfigManager] 按钮配置 label 无效")
             return None
         if not isinstance(button.get('icon'), str):
-            logger.error(f"[ConfigManager] 按钮配置 icon 无效")
+            logger.error("[ConfigManager] 按钮配置 icon 无效")
             return None
         if not isinstance(button.get('enabled'), bool):
-            logger.warning(f"[ConfigManager] 按钮配置 enabled 无效，使用默认值 True")
+            logger.warning("[ConfigManager] 按钮配置 enabled 无效，使用默认值 True")
             button['enabled'] = True
         if not isinstance(button.get('order'), (int, float)):
-            logger.warning(f"[ConfigManager] 按钮配置 order 无效，使用默认值 999")
+            logger.warning("[ConfigManager] 按钮配置 order 无效，使用默认值 999")
             button['order'] = 999
         return button
 
@@ -952,7 +971,7 @@ class ConfigManager:
                     logger.error(f"[ConfigManager] 配置错误: {error}")
             if result["warnings"] or result["errors"]:
                 self.config = result["fixed_config"]
-            logger.info(f"[ConfigManager] 配置已重新加载")
+            logger.info("[ConfigManager] 配置已重新加载")
             return self.config
         except Exception as e:
             logger.error(f"[ConfigManager] 重新加载配置失败: {e}")

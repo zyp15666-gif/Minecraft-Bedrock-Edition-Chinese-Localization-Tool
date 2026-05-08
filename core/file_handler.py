@@ -4,18 +4,18 @@
 文件处理模块
 支持并行读取和解析JSON文件，提高处理速度
 """
-import re
-import os
-import json
-import shutil
 import concurrent.futures
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from pathlib import Path
+import json
+import os
+import re
+import shutil
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Callable, Tuple
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.log_manager import get_logger
-from core.utils import is_protected_system_path, is_lang_key_format
+from core.utils import is_lang_key_format, is_protected_system_path
 
 logger = get_logger(__name__)
 
@@ -161,7 +161,7 @@ class FileHandler:
                         logger.warning(f"⚠️ 翻译失败: {str(e)}，保留原始文件夹名")
                         manifest_data["header"]["name"] = original_name
                 else:
-                    logger.warning(f"⚠️ 无可用翻译器，保留原始文件夹名作为 name")
+                    logger.warning("⚠️ 无可用翻译器，保留原始文件夹名作为 name")
                     manifest_data["header"]["name"] = original_name
 
                 manifest_data["header"]["description"] = author_desc
@@ -248,7 +248,7 @@ class FileHandler:
         dn = components.get("minecraft:display_name", "")
         original = ""
         skip_reason = ""
-        
+
         if isinstance(dn, dict) and "value" in dn:
             raw_value = dn["value"]
             # 检查 value 内容是否为语言键引用
@@ -256,10 +256,10 @@ class FileHandler:
                 stripped = raw_value.strip()
                 if stripped.startswith('%'):
                     original = ""
-                    skip_reason = f"value 内是语言键引用 (以%开头)"
+                    skip_reason = "value 内是语言键引用 (以%开头)"
                 elif is_lang_key_format(stripped):
                     original = ""
-                    skip_reason = f"value 内是语言键格式"
+                    skip_reason = "value 内是语言键格式"
                 else:
                     original = raw_value
             else:
@@ -269,19 +269,19 @@ class FileHandler:
             # 过滤1：以 % 开头的语言键引用
             if stripped.startswith('%'):
                 original = ""
-                skip_reason = f"语言键引用 (以%开头)"
+                skip_reason = "语言键引用 (以%开头)"
             # 过滤2：纯语言键格式
             elif is_lang_key_format(stripped):
                 original = ""
-                skip_reason = f"语言键格式"
+                skip_reason = "语言键格式"
             # 过滤3：仅由单个完整 § 格式代码组成
             elif re.fullmatch(r'[§\u00A7][0-9a-fk-or]', stripped):
                 original = ""
-                skip_reason = f"纯格式代码"
+                skip_reason = "纯格式代码"
             # 过滤4：移除所有有效 § 代码后不剩下任何普通字母
             elif not any(c.isalpha() and c.lower() >= 'a' for c in re.sub(r'[§\u00A7][0-9a-fk-or]', '', stripped).replace('%', '')):
                 original = ""
-                skip_reason = f"移除格式代码后无有效文本"
+                skip_reason = "移除格式代码后无有效文本"
             else:
                 original = dn
 
@@ -293,7 +293,6 @@ class FileHandler:
         return None
 
     def extract_entries(self, bp_folder: str) -> Dict[str, str]:
-        """三层提取：标准组件 + 战利品表书籍 + 自适应 § 扫描"""
         lang_entries = {}
         bp_path = Path(bp_folder)
         json_files = list(bp_path.rglob("*.json"))
@@ -303,17 +302,20 @@ class FileHandler:
 
         print(f"[DEBUG] 开始三层提取，共发现 {len(json_files)} 个 JSON 文件")
 
-        # 用于第3层去重的路径集合
         extracted_paths = set()
-
         results = self.read_json_files_parallel(json_files)
 
-        # 第1层 + 第2层
+        self._extract_layer1_and_2(results, lang_entries, extracted_paths)
+        self._extract_layer3(results, lang_entries, bp_folder, extracted_paths)
+
+        print(f"[DEBUG] 三层提取完成，共提取 {len(lang_entries)} 个条目")
+        return lang_entries
+
+    def _extract_layer1_and_2(self, results, lang_entries, extracted_paths):
         for filepath, data in results:
             if data is None:
                 continue
             try:
-                # ----- 第1层：标准 display_name 提取 -----
                 for ident_key, prefix in [("minecraft:block", "tile"), ("minecraft:item", "item")]:
                     if ident_key in data:
                         result = self._extract_entry_from_json(data, ident_key, prefix)
@@ -325,7 +327,6 @@ class FileHandler:
                                     (str(filepath), (ident_key, "components", "minecraft:display_name"))
                                 )
 
-                # ----- 第2层：战利品表书籍内容提取 -----
                 book_entries = self._extract_book_contents(data, str(filepath))
                 if book_entries:
                     print(f"[DEBUG 第2层] ✓ 提取书籍 {Path(filepath).stem}: {len(book_entries)} 条")
@@ -333,22 +334,24 @@ class FileHandler:
                     if key not in lang_entries:
                         lang_entries[key] = original
 
-                # 记录书籍页面路径
                 if "pools" in data:
-                    for pi, pool in enumerate(data["pools"]):
-                        for ei, entry in enumerate(pool.get("entries", [])):
-                            for fi, func in enumerate(entry.get("functions", [])):
-                                if func.get("function") == "set_book_contents":
-                                    for i in range(len(func.get("pages", []))):
-                                        extracted_paths.add(
-                                            (str(filepath),
-                                            ("pools", pi, "entries", ei, "functions", fi, "pages", i))
-                                        )
+                    self._record_book_page_paths(data, str(filepath), extracted_paths)
             except Exception as e:
                 logger.error(f"提取失败 {filepath.name}: {e}")
                 print(f"[DEBUG] 提取失败 {filepath.name}: {e}")
 
-        # ----- 第3层：自适应 § 扫描 -----
+    def _record_book_page_paths(self, data, filepath_str, extracted_paths):
+        for pi, pool in enumerate(data["pools"]):
+            for ei, entry in enumerate(pool.get("entries", [])):
+                for fi, func in enumerate(entry.get("functions", [])):
+                    if func.get("function") == "set_book_contents":
+                        for i in range(len(func.get("pages", []))):
+                            extracted_paths.add(
+                                (filepath_str,
+                                ("pools", pi, "entries", ei, "functions", fi, "pages", i))
+                            )
+
+    def _extract_layer3(self, results, lang_entries, bp_folder, extracted_paths):
         for filepath, data in results:
             if data is None:
                 continue
@@ -364,8 +367,6 @@ class FileHandler:
             except Exception as e:
                 logger.error(f"自适应扫描失败 {filepath.name}: {e}")
                 print(f"[DEBUG] 自适应扫描失败 {filepath.name}: {e}")
-        print(f"[DEBUG] 三层提取完成，共提取 {len(lang_entries)} 个条目")
-        return lang_entries
 
 
     def _extract_book_contents(self, data: dict, filepath: str) -> Dict[str, str]:
@@ -526,9 +527,9 @@ class FileHandler:
 
     def replace_display_names_with_lang_key(self, bp_folder: str):
         """全BP批量替换display_name为对象格式的lang键"""
-        import os
         import json
-        
+        import os
+
         total = 0
         success = 0
 
@@ -544,23 +545,23 @@ class FileHandler:
                         data = json.load(f)
 
                     modified = False
-                    
+
                     # 查找 minecraft:block 或 minecraft:item 节点
                     for pack_type in ["minecraft:block", "minecraft:item"]:
                         if pack_type in data and isinstance(data[pack_type], dict):
                             block_item = data[pack_type]
                             description = block_item.get("description", {})
                             identifier = description.get("identifier", "")
-                            
+
                             if not identifier or ":" not in identifier:
                                 continue
-                                
+
                             item_id = identifier.split(":")[-1]
                             if pack_type == "minecraft:block":
                                 lang_key = f"tile.{self.namespace}:{item_id}.name"
                             else:
                                 lang_key = f"item.{self.namespace}:{item_id}.name"
-                            
+
                             components = block_item.get("components", {})
                             if "minecraft:display_name" in components:
                                 # 无论原值是字符串还是对象，统一替换为标准的对象格式
@@ -568,7 +569,7 @@ class FileHandler:
                                 modified = True
                                 # 确保 components 字典写回 block_item
                                 block_item["components"] = components
-                    
+
                     # 如果修改了数据，写回文件
                     if modified:
                         with open(filepath, "w", encoding="utf-8") as f:
@@ -658,10 +659,10 @@ class FileHandler:
 
     def _read_json_file(self, filepath: Path) -> Optional[Dict[str, Any]]:
         """读取单个JSON文件
-        
+
         Args:
             filepath: JSON文件路径
-            
+
         Returns:
             JSON数据，如果读取失败返回None
         """
@@ -770,20 +771,20 @@ class FileHandler:
         return results
 
     def scan_json_files_parallel(
-        self, 
+        self,
         folder_path: str,
         pattern: str = "*.json",
         max_workers: Optional[int] = None,
         progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> List[Tuple[Path, Dict[str, Any]]]:
         """并行扫描和解析文件夹中的JSON文件
-        
+
         Args:
             folder_path: 文件夹路径
             pattern: 文件匹配模式，默认为"*.json"
             max_workers: 最大并发数
             progress_callback: 进度回调函数 (current, total)
-            
+
         Returns:
             包含(文件路径, JSON数据)的列表
         """
@@ -819,11 +820,11 @@ class FileHandler:
         """将二三层翻译结果硬编码写回原始JSON文件"""
         processed = 0
         errors = 0
-        
+
         for key, translated_text in lang_entries.items():
             if not (key.startswith('book.') or key.startswith('auto.')):
                 continue
-            
+
             try:
                 if key.startswith('book.'):
                     # 格式: book.{file_stem}.pools.{pi}.entries.{ei}.functions.{fi}.{field}[.pages.{page}]
@@ -842,14 +843,14 @@ class FileHandler:
                         except ValueError:
                             path_parts.append(seg)
                         i += 1
-                    
+
                     # 查找文件
                     filepath = self._find_loot_table_file(bp_folder, file_stem + '.json')
                     if not filepath:
                         logger.warning(f"找不到战利品表文件: {file_stem}.json")
                         errors += 1
                         continue
-                    
+
                 elif key.startswith('auto.'):
                     # 格式: auto.{rel_path_with_dashes}.{json_path_parts}
                     auto_part = key[len('auto.'):]
@@ -858,7 +859,7 @@ class FileHandler:
                         logger.warning(f"无法解析auto键: {key}")
                         errors += 1
                         continue
-                    
+
                     file_rel_part = auto_part[:json_dot_index + 5]  # 包含 .json
                     json_path_str = auto_part[json_dot_index + 6:]
                     file_rel = file_rel_part.replace('-', '/')
@@ -867,7 +868,7 @@ class FileHandler:
                         logger.warning(f"找不到文件: {filepath}")
                         errors += 1
                         continue
-                    
+
                     # 解析路径
                     path_parts = []
                     for seg in json_path_str.split('.'):
@@ -877,15 +878,15 @@ class FileHandler:
                             path_parts.append(seg)
                 else:
                     continue
-                
+
                 # 应用修改
                 self._set_json_value(filepath, path_parts, translated_text)
                 processed += 1
-                
+
             except Exception as e:
                 logger.error(f"应用翻译失败 [{key}]: {e}")
                 errors += 1
-        
+
         logger.info(f"硬编码汉化完成：成功 {processed} 条，失败 {errors} 条")
         return processed
     def _find_loot_table_file(self, bp_folder: str, filename: str) -> Optional[str]:
@@ -899,7 +900,7 @@ class FileHandler:
         if len(matches) > 1:
             logger.warning(f"⚠️ 发现多个同名文件 {filename}，使用第一个: {matches[0]}")
         return matches[0]
-    
+
 
     def _set_json_value(self, filepath: str, json_path: list, new_value: str):
         """根据路径列表修改JSON文件中的值（路径元素为字符串键或整数索引）"""

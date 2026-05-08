@@ -11,8 +11,9 @@
     container, button_dict, function_buttons = create_function_buttons(context, callbacks)
 """
 
+from typing import TYPE_CHECKING, Callable, Dict, List, Tuple
+
 import flet as ft
-from typing import TYPE_CHECKING, Dict, Callable, List, Tuple
 
 if TYPE_CHECKING:
     from ui.tabs.context import UIContext

@@ -12,8 +12,9 @@
     status_bar.create()
 """
 
+from typing import Any, Dict
+
 import flet as ft
-from typing import Dict, Any
 
 
 class StatusBar:

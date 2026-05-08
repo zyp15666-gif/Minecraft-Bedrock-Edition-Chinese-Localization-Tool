@@ -9,12 +9,8 @@
 """
 
 import os
-import time
-import copy
 from datetime import datetime
-from typing import Dict, Any, List, Optional, Callable
-
-import flet as ft
+from typing import Any, Callable, Dict, List, Optional
 
 from core.log_manager import get_logger
 from core.utils import CallbackWrapper
@@ -42,26 +38,26 @@ class ApplicationService:
         self.log = log_callback or print
         self.show_error = show_error or (lambda t, m: print(f"[{t}] {m}"))
         self.show_success = show_success or (lambda t, m: print(f"[{t}] {m}"))
-        
+
         self._init_use_cases()
 
     def _init_use_cases(self):
         """初始化所有UseCase实例"""
         from core.use_cases import (
-            ExtractOnlyUseCase,
-            ExtractAndTranslateUseCase,
-            ReplaceDisplayNamesUseCase,
-            OneClickServiceUseCase,
+            AdaptEntityDisplayNamesUseCase,
             BatchDeleteValueUseCase,
             BatchRestoreValueUseCase,
+            ExtractAndTranslateUseCase,
+            ExtractOnlyUseCase,
+            OneClickServiceUseCase,
+            ReplaceDisplayNamesUseCase,
+            ScriptHardcodeTranslationUseCase,
             TranslateLangFileUseCase,
             TranslateSingleJsFileUseCase,
-            AdaptEntityDisplayNamesUseCase,
-            ScriptHardcodeTranslationUseCase
         )
         from core.use_cases.backup_management import BackupManagementUseCase
         from core.use_cases.translate_mcstructure import McstructureTranslationUseCase
-        
+
         self._extract_only_uc = ExtractOnlyUseCase(self.file_handler)
         self._extract_translate_uc = ExtractAndTranslateUseCase(self.file_handler, self.translator)
         self._replace_display_uc = ReplaceDisplayNamesUseCase(self.file_handler)
@@ -323,11 +319,11 @@ class ApplicationService:
 
     def run_use_case(self, method_name: str, **kwargs) -> Dict[str, Any]:
         """通用UseCase调用方法
-        
+
         Args:
             method_name: 方法名称（如 'extract_only', 'extract_and_translate' 等）
             **kwargs: 传递给方法的参数
-            
+
         Returns:
             执行结果字典
         """

@@ -5,16 +5,16 @@
 """
 
 import os
-from typing import Dict, Optional, Callable, Any
+from typing import Any, Callable, Dict, Optional
 
 
 class ExtractAndTranslateUseCase:
     """提取并翻译的用例类"""
-    
+
     def __init__(self, file_handler, translator):
         self.file_handler = file_handler
         self.translator = translator
-    
+
     def execute(
         self,
         bp_path: str,
@@ -25,11 +25,11 @@ class ExtractAndTranslateUseCase:
         def log(msg):
             if log_callback:
                 log_callback(msg)
-        
+
         def progress(value, remaining_count=0, remaining_time=0):
             if progress_callback:
                 progress_callback(value, remaining_count, remaining_time)
-        
+
         try:
             if not bp_path:
                 return {

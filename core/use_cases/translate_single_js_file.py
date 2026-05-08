@@ -5,15 +5,15 @@
 """
 
 import os
-from typing import Dict, Optional, Callable, Any
+from typing import Any, Callable, Dict, Optional
 
 
 class TranslateSingleJsFileUseCase:
     """翻译单个JS文件的用例类"""
-    
+
     def __init__(self, translator):
         self.translator = translator
-    
+
     def execute(
         self,
         js_file_path: str,

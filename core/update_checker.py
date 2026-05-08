@@ -17,16 +17,14 @@
     repo_name: "wodeshijie"     # GitHub 仓库名
 """
 
-import os
-import sys
 import json
 import logging
 import threading
 import webbrowser
-from pathlib import Path
-from typing import Optional, Dict, Any, Callable
-from datetime import datetime, timedelta
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -83,13 +81,8 @@ class UpdateChecker:
 
     def _get_last_check_file(self) -> Path:
         """获取上次检查时间记录文件路径"""
-        if getattr(sys, 'frozen', False):
-            base_dir = Path(os.environ.get('USERPROFILE', '~')) / "Documents" / "Minecraft基岩版汉化工具"
-        else:
-            base_dir = Path(__file__).parent.parent
-
-        base_dir.mkdir(parents=True, exist_ok=True)
-        return base_dir / ".update_check"
+        from core.app_paths import get_update_check_state_path
+        return get_update_check_state_path()
 
     def _load_last_check_time(self) -> Optional[datetime]:
         """加载上次检查时间"""
@@ -289,7 +282,8 @@ def get_current_version() -> str:
 def check_update_on_startup(
     repo_owner: Optional[str] = None,
     repo_name: Optional[str] = None,
-    show_dialog: bool = True
+    show_dialog: bool = True,
+    config: Optional[Dict[str, Any]] = None
 ) -> Optional[UpdateInfo]:
     """启动时检查更新
 
@@ -297,53 +291,65 @@ def check_update_on_startup(
         repo_owner: GitHub 仓库所有者
         repo_name: GitHub 仓库名
         show_dialog: 是否在有更新时显示对话框
+        config: 配置字典（可选），用于读取更新检查配置
 
     Returns:
         更新信息
     """
-    current_version = get_current_version()
-    checker = UpdateChecker(
-        current_version=current_version,
-        repo_owner=repo_owner,
-        repo_name=repo_name
-    )
+    try:
+        if config:
+            check_on_startup = config.get('update', {}).get('check_on_startup', True)
+            if not check_on_startup:
+                logger.debug("配置禁用了启动时更新检查")
+                return None
 
-    update_info = checker.check_for_update()
+        current_version = get_current_version()
+        checker = UpdateChecker(
+            current_version=current_version,
+            repo_owner=repo_owner,
+            repo_name=repo_name
+        )
 
-    if update_info and update_info.has_update and show_dialog:
-        try:
-            import tkinter as tk
-            from tkinter import messagebox
+        update_info = checker.check_for_update()
 
-            root = tk.Tk()
-            root.withdraw()
-            root.attributes('-topmost', True)
+        if update_info and update_info.has_update and show_dialog:
+            try:
+                import tkinter as tk
+                from tkinter import messagebox
 
-            message = (
-                f"发现新版本: {update_info.latest_version}\n"
-                f"当前版本: {update_info.current_version}\n\n"
-                f"更新内容:\n{update_info.release_notes[:200]}...\n\n"
-                f"是否立即下载？"
-            )
+                root = tk.Tk()
+                root.withdraw()
+                root.attributes('-topmost', True)
 
-            result = messagebox.askyesno(
-                "发现新版本",
-                message
-            )
+                message = (
+                    f"发现新版本: {update_info.latest_version}\n"
+                    f"当前版本: {update_info.current_version}\n\n"
+                    f"更新内容:\n{update_info.release_notes[:200]}...\n\n"
+                    f"是否立即下载？"
+                )
 
-            root.destroy()
+                result = messagebox.askyesno(
+                    "发现新版本",
+                    message
+                )
 
-            if result:
-                checker.open_download_page(update_info)
+                root.destroy()
 
-        except ImportError:
-            print(f"\n{'=' * 50}")
-            print(f"🔔 发现新版本: {update_info.latest_version}")
-            print(f"   当前版本: {update_info.current_version}")
-            print(f"   下载地址: {update_info.release_url}")
-            print(f"{'=' * 50}\n")
+                if result:
+                    checker.open_download_page(update_info)
 
-    return update_info
+            except ImportError:
+                print(f"\n{'=' * 50}")
+                print(f"🔔 发现新版本: {update_info.latest_version}")
+                print(f"   当前版本: {update_info.current_version}")
+                print(f"   下载地址: {update_info.release_url}")
+                print(f"{'=' * 50}\n")
+
+        return update_info
+
+    except Exception as e:
+        logger.warning(f"启动时更新检查失败（网络或配置问题）: {e}")
+        return None
 
 
 if __name__ == "__main__":

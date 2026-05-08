@@ -4,17 +4,17 @@
 术语导出器 - 负责导入/导出术语、合并词典、更新检查
 """
 
-import re
 import json
 import os
+import re
 import shutil
-import time
 from datetime import datetime
-from typing import Dict, Optional, List, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
 from core.log_manager import get_logger
+
 from .loader import TerminologyLoader
 
 logger = get_logger(__name__)
@@ -34,7 +34,7 @@ class TerminologyExporter:
 
     def __init__(self, loader: TerminologyLoader):
         """初始化术语导出器
-        
+
         Args:
             loader: 术语加载器实例
         """
@@ -50,7 +50,7 @@ class TerminologyExporter:
                 meta = dict(getattr(self.loader, 'meta', {}))
                 meta.update({
                     'version': meta.get('version', '1.0'),
-                    'updated': datetime.datetime.now().strftime('%Y-%m-%d'),
+                    'updated': datetime.now().strftime('%Y-%m-%d'),
                     'total_terms': len(self.loader.terms),
                 })
                 result = {'_meta': meta}
@@ -74,12 +74,12 @@ class TerminologyExporter:
 
     def import_terms(self, input_path: str, overwrite: bool = False, replace: bool = False) -> int:
         """从文件导入术语到当前词典
-        
+
         Args:
             input_path: 输入文件路径
             overwrite: 是否覆盖现有术语（单个键覆盖）
             replace: 是否完全替换当前词典（清空后导入）
-        
+
         Returns:
             导入的术语数量
         """
@@ -126,11 +126,11 @@ class TerminologyExporter:
 
     def add_terms_batch(self, terms_dict: Dict[str, str], overwrite: bool = False) -> int:
         """批量添加术语到当前词典
-        
+
         Args:
             terms_dict: 术语字典 {英文: 中文}
             overwrite: 是否覆盖现有术语
-        
+
         Returns:
             添加/更新的术语数量
         """
@@ -143,53 +143,69 @@ class TerminologyExporter:
         logger.info(f"批量添加完成: {added_count} 条术语，总术语数 {len(self.loader.terms)}")
         return added_count
 
+    @staticmethod
+    def _load_terms_from_file(file_path: str) -> Dict[str, str]:
+        """从文件加载术语词典（支持 JSON 和 TSV 格式）
+
+        Args:
+            file_path: 词典文件路径
+
+        Returns:
+            加载的术语字典
+        """
+        if file_path.lower().endswith('.json'):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+
+        terms: Dict[str, str] = {}
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    parts = line.split('\t')
+                    if len(parts) >= 2:
+                        terms[parts[0]] = parts[1]
+        return terms
+
+    @staticmethod
+    def _save_terms_to_file(file_path: str, terms: Dict[str, str]) -> None:
+        """将术语词典保存到文件（支持 JSON 和 TSV 格式）
+
+        Args:
+            file_path: 词典文件路径
+            terms: 术语字典
+        """
+        os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
+
+        if file_path.lower().endswith('.json'):
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(terms, f, ensure_ascii=False, indent=2)
+        else:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                for key, value in terms.items():
+                    f.write(f"{key}\t{value}\n")
+
     def merge_term_dicts(self, source_dict_path: str, target_dict_path: Optional[str] = None, overwrite: bool = False) -> Dict[str, str]:
         """合并术语词典
-        
+
         Args:
             source_dict_path: 源词典文件路径
             target_dict_path: 目标词典文件路径（None则使用当前词典）
             overwrite: 是否覆盖现有术语（False则保留现有术语）
-        
+
         Returns:
             合并后的术语词典
         """
         try:
-            if source_dict_path.lower().endswith('.json'):
-                with open(source_dict_path, 'r', encoding='utf-8') as f:
-                    source_terms = json.load(f)
-            else:
-                source_terms = {}
-                with open(source_dict_path, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith('#'):
-                            parts = line.split('\t')
-                            if len(parts) >= 2:
-                                key, value = parts[0], parts[1]
-                                source_terms[key] = value
-
+            source_terms = self._load_terms_from_file(source_dict_path)
             logger.info(f"已加载源术语词典: {len(source_terms)} 条")
 
             if target_dict_path is None:
                 target_terms = self.loader.terms.copy()
+            elif os.path.exists(target_dict_path):
+                target_terms = self._load_terms_from_file(target_dict_path)
             else:
-                if os.path.exists(target_dict_path):
-                    if target_dict_path.lower().endswith('.json'):
-                        with open(target_dict_path, 'r', encoding='utf-8') as f:
-                            target_terms = json.load(f)
-                    else:
-                        target_terms = {}
-                        with open(target_dict_path, 'r', encoding='utf-8') as f:
-                            for line in f:
-                                line = line.strip()
-                                if line and not line.startswith('#'):
-                                    parts = line.split('\t')
-                                    if len(parts) >= 2:
-                                        key, value = parts[0], parts[1]
-                                        target_terms[key] = value
-                else:
-                    target_terms = {}
+                target_terms = {}
 
             merged_count = 0
             for key, value in source_terms.items():
@@ -200,16 +216,7 @@ class TerminologyExporter:
             logger.info(f"合并完成: 新增/更新 {merged_count} 条术语，总术语数 {len(target_terms)}")
 
             if target_dict_path:
-                os.makedirs(os.path.dirname(os.path.abspath(target_dict_path)), exist_ok=True)
-
-                if target_dict_path.lower().endswith('.json'):
-                    with open(target_dict_path, 'w', encoding='utf-8') as f:
-                        json.dump(target_terms, f, ensure_ascii=False, indent=2)
-                else:
-                    with open(target_dict_path, 'w', encoding='utf-8') as f:
-                        for key, value in target_terms.items():
-                            f.write(f"{key}\t{value}\n")
-
+                self._save_terms_to_file(target_dict_path, target_terms)
                 logger.info(f"已保存到: {target_dict_path}")
 
             if target_dict_path is None:
@@ -224,10 +231,10 @@ class TerminologyExporter:
 
     def check_for_updates(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """检查术语词典更新
-        
+
         Args:
             config: 包含术语配置的字典
-        
+
         Returns:
             更新检查结果字典
         """
@@ -251,7 +258,7 @@ class TerminologyExporter:
 
             update_url = config.get('update_url')
             auto_update = config.get('auto_update', False)
-            update_check_interval_days = config.get('update_check_interval_days', 30)
+            config.get('update_check_interval_days', 30)
 
             if update_url and auto_update:
                 update_result['message'] = '自动更新已启用，但远程检查未实现'
@@ -272,11 +279,11 @@ class TerminologyExporter:
 
     def update_terms_from_url(self, url: str, backup: bool = True) -> Dict[str, Any]:
         """从URL更新术语词典
-        
+
         Args:
             url: 术语词典URL
             backup: 是否备份现有词典
-        
+
         Returns:
             更新结果字典
         """
@@ -337,83 +344,126 @@ class TerminologyExporter:
 
         return update_result
 
+    @staticmethod
+    def _clean_lang_value(value: str) -> str:
+        """清洗 .lang 文件中的值，移除格式代码和特殊字符
+
+        Args:
+            value: 原始值字符串
+
+        Returns:
+            清洗后的字符串
+        """
+        clean = re.sub(r'§[0-9a-fklmnor]', '', value)
+        clean = re.sub(r'~LINEBREAK~', ' ', clean)
+        clean = re.sub(r'%[0-9]*\$?[sdf]', '', clean)
+        clean = re.sub(r'\\n', ' ', clean)
+        clean = re.sub(r'[\[\]{}()<>]', '', clean)
+        return clean
+
+    @staticmethod
+    def _extract_terms_from_line(key: str, value: str) -> List[str]:
+        """从单行 .lang 条目中提取潜在术语
+
+        Args:
+            key: 条目的键
+            value: 条目的值
+
+        Returns:
+            提取到的术语列表
+        """
+        clean_value = TerminologyExporter._clean_lang_value(value)
+
+        uppercase_words = re.findall(r'\b[A-Z]{2,}\b', clean_value)
+        titlecase_words = re.findall(r'\b[A-Z][a-z]+\b', clean_value)
+        compound_terms = re.findall(r'\b[A-Z][a-z]+\s+[A-Z][a-z]+\b', clean_value)
+        multiword_terms = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b', clean_value)
+
+        if ':' in key:
+            identifier = key.split(':')[-1]
+            parts = re.split(r'[._]', identifier)
+            for part in parts:
+                if part and part[0].isupper():
+                    titlecase_words.append(part)
+
+        return uppercase_words + titlecase_words + compound_terms + multiword_terms
+
+    def _find_missing_terms(self, sorted_terms: List[Tuple[str, int]]) -> List[str]:
+        """从排序后的术语列表中找出缺失的术语
+
+        Args:
+            sorted_terms: 排序后的 (术语, 频率) 列表
+
+        Returns:
+            缺失的术语列表
+        """
+        existing_lower = {k.lower(): v for k, v in self.loader.terms.items()}
+        missing_terms = []
+
+        for term, _freq in sorted_terms:
+            term_lower = term.lower()
+            if term_lower in existing_lower:
+                continue
+            is_part_of_existing = any(
+                term_lower in existing.lower() or existing.lower() in term_lower
+                for existing in self.loader.terms.keys()
+            )
+            if not is_part_of_existing:
+                missing_terms.append(term)
+
+        return missing_terms
+
     def extract_terms_from_lang_file(self, file_path: str, min_frequency: int = 1) -> Dict[str, Any]:
         """从.lang文件提取潜在术语
-        
+
         Args:
             file_path: .lang文件路径
             min_frequency: 最小出现频率（默认1）
-        
+
         Returns:
             字典包含提取的术语统计信息
         """
+        empty_result = {
+            'sorted_terms': [],
+            'term_context': {},
+            'missing_terms': [],
+            'total_unique_terms': 0,
+            'filtered_terms': 0
+        }
+
         if not os.path.exists(file_path):
             logger.error(f"文件不存在: {file_path}")
-            return {
-                'sorted_terms': [],
-                'term_context': {},
-                'missing_terms': [],
-                'total_unique_terms': 0,
-                'filtered_terms': 0
-            }
+            return empty_result
 
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
         except Exception as e:
             logger.error(f"读取文件失败 {file_path}: {e}")
-            return {
-                'sorted_terms': [],
-                'term_context': {},
-                'missing_terms': [],
-                'total_unique_terms': 0,
-                'filtered_terms': 0
-            }
-
-        lines = content.split('\n')
+            return empty_result
 
         terms: List[str] = []
         term_context: Dict[str, List[str]] = {}
 
-        for line in lines:
+        for line in content.split('\n'):
             line = line.strip()
             if not line or line.startswith('##'):
                 continue
+            if '=' not in line:
+                continue
 
-            if '=' in line:
-                key, value = line.split('=', 1)
-                key = key.strip()
-                value = value.strip()
+            key, value = line.split('=', 1)
+            key, value = key.strip(), value.strip()
+            if not value:
+                continue
 
-                if not value:
-                    continue
-
-                clean_value = re.sub(r'§[0-9a-fklmnor]', '', value)
-                clean_value = re.sub(r'~LINEBREAK~', ' ', clean_value)
-                clean_value = re.sub(r'%[0-9]*\$?[sdf]', '', clean_value)
-                clean_value = re.sub(r'\\n', ' ', clean_value)
-                clean_value = re.sub(r'[\[\]{}()<>]', '', clean_value)
-
-                uppercase_words = re.findall(r'\b[A-Z]{2,}\b', clean_value)
-                titlecase_words = re.findall(r'\b[A-Z][a-z]+\b', clean_value)
-                compound_terms = re.findall(r'\b[A-Z][a-z]+\s+[A-Z][a-z]+\b', clean_value)
-                multiword_terms = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b', clean_value)
-
-                if ':' in key:
-                    identifier = key.split(':')[-1]
-                    parts = re.split(r'[._]', identifier)
-                    for part in parts:
-                        if part and part[0].isupper():
-                            titlecase_words.append(part)
-
-                all_terms = uppercase_words + titlecase_words + compound_terms + multiword_terms
-
-                for term in all_terms:
-                    if len(term) > 2:
-                        terms.append(term)
-                        if term not in term_context:
-                            term_context[term] = []
-                        term_context[term].append(f"{key}={value[:50]}...")
+            all_terms = self._extract_terms_from_line(key, value)
+            for term in all_terms:
+                if len(term) > 2:
+                    terms.append(term)
+                    if term not in term_context:
+                        term_context[term] = []
+                    term_context[term].append(f"{key}={value[:50]}...")
 
         term_freq: Dict[str, int] = {}
         for term in terms:
@@ -422,23 +472,7 @@ class TerminologyExporter:
         sorted_terms = [(term, freq) for term, freq in sorted(term_freq.items(), key=lambda x: x[1], reverse=True)
                         if freq >= min_frequency]
 
-        missing_terms = []
-        existing_lower = {k.lower(): v for k, v in self.loader.terms.items()}
-
-        for term, freq in sorted_terms:
-            term_lower = term.lower()
-
-            if term_lower in existing_lower:
-                continue
-
-            is_part_of_existing = False
-            for existing in self.loader.terms.keys():
-                if term_lower in existing.lower() or existing.lower() in term_lower:
-                    is_part_of_existing = True
-                    break
-
-            if not is_part_of_existing:
-                missing_terms.append(term)
+        missing_terms = self._find_missing_terms(sorted_terms)
 
         return {
             'sorted_terms': sorted_terms,
@@ -450,7 +484,7 @@ class TerminologyExporter:
 
     def get_term_stats(self) -> Dict[str, Any]:
         """获取术语词典统计信息
-        
+
         Returns:
             统计信息字典
         """

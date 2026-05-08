@@ -18,11 +18,11 @@
         ...
 """
 
-import time
-import random
 import functools
-from typing import Callable, Optional, Tuple, Type, Any, Dict
+import random
+import time
 from enum import Enum
+from typing import Any, Callable, Dict, Optional, Tuple, Type
 
 from core.log_manager import get_logger
 

@@ -17,10 +17,10 @@ API 熔断器模块
         print("API 暂时不可用")
 """
 
-import time
 import threading
-from typing import Dict, Callable, Any, Optional
+import time
 from enum import Enum
+from typing import Any, Callable, Dict, Optional
 
 from core.log_manager import get_logger
 
@@ -124,7 +124,7 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self._on_success(api_name)
             return result
-        except Exception as e:
+        except Exception:
             self._on_failure(api_name)
             raise
 
@@ -183,6 +183,22 @@ class CircuitBreaker:
         """获取 API 的熔断器状态"""
         with self._lock:
             return self._states.get(api_name, CircuitState.CLOSED)
+
+    def is_open(self, api_name: str) -> bool:
+        """调度层使用：OPEN 且未到恢复窗口时跳过该 API。"""
+        with self._lock:
+            state = self._states.get(api_name, CircuitState.CLOSED)
+            if state == CircuitState.OPEN:
+                return not self._should_attempt_recovery(api_name)
+            return False
+
+    def record_success(self, api_name: str):
+        """在 `call()` 外包一层记录成功（如 APIOrchestrator）。"""
+        self._on_success(api_name)
+
+    def record_failure(self, api_name: str):
+        """在 `call()` 外包一层记录失败（如 APIOrchestrator）。"""
+        self._on_failure(api_name)
 
     def is_available(self, api_name: str) -> bool:
         """检查 API 是否可用（熔断器未开启）"""
@@ -262,7 +278,6 @@ def reset_global_circuit_breaker():
 
 
 if __name__ == "__main__":
-    import unittest.mock as mock
 
     print("=" * 60)
     print("熔断器单元测试")

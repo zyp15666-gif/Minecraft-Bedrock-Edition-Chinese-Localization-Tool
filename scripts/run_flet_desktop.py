@@ -6,17 +6,18 @@
     python run_flet_desktop.py
 """
 
-import sys
 import os
+import sys
 import warnings
+
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 sys.path.insert(0, project_root)
 
-from core.webview2_checker import check_webview2_installed, ensure_webview2
 from core.update_checker import check_update_on_startup, get_current_version
+from core.webview2_checker import check_webview2_installed, ensure_webview2
 
 
 def check_dependencies():
@@ -35,14 +36,15 @@ def check_dependencies():
 
 
 def main(page):
-    """Flet应用主函数"""
-    from ui.main_window import MinecraftTranslatorApp
-    app = MinecraftTranslatorApp(page)
+    """Flet 入口：委托给 main_window.main（含 on_close 清理）。"""
+    from ui.main_window import main as run_app
+    run_app(page)
 
 
 if __name__ == "__main__":
     import flet as ft
-    from core.log_manager import init_logger, get_log_manager
+
+    from config.config_manager import ConfigManager
 
     print("🎮 正在启动 Minecraft 基岩版汉化工具...")
     print("✨ Flet 现代化 UI 界面（桌面客户端模式）")
@@ -57,15 +59,23 @@ if __name__ == "__main__":
     print("✅ 运行时依赖检查通过")
     print("=" * 50)
 
-    init_logger()
+    import ui.main_window  # noqa: F401 — 安装日志与全局 excepthook
+    from core.log_manager import get_log_manager
+
     log_mgr = get_log_manager()
     if log_mgr:
-        logger = log_mgr.get_logger(__name__)
-        logger.info("应用程序启动")
+        log_mgr.get_logger(__name__).info("应用程序启动")
+
+    try:
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
+    except Exception as e:
+        print(f"⚠️  加载配置失败: {e}")
+        config = None
 
     import threading
     update_thread = threading.Thread(
-        target=lambda: check_update_on_startup(show_dialog=True),
+        target=lambda: check_update_on_startup(show_dialog=True, config=config),
         daemon=True
     )
     update_thread.start()

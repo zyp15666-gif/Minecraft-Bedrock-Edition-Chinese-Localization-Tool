@@ -12,31 +12,31 @@ API管理模块 - 精简版
   - APIDetector: API列表构建与检测
 """
 
-import time
-import threading
 import logging
-from typing import List, Dict, Any, Optional, Callable
+import threading
+import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, Dict, List, Optional
 
-from core.log_manager import get_logger
-from core.utils import resolve_resource_path
 from api.api_client import APIClient
-from api.translation_cache import TranslationCache
-from api.translation_strategy import TranslationStrategy
-from api.interfaces import ITranslationEngine
 from api.api_detector import APIDetector
-from api.circuit_breaker import CircuitBreaker, CircuitOpenError
-from api.unified_retry import with_retry, RetryPolicy
+from api.api_monitor import APIMonitor
 from api.api_orchestrator import APIOrchestrator
 from api.batch_translation_coordinator import BatchTranslationCoordinator
-from api.multi_api_verifier import MultiAPIVerifier
+from api.circuit_breaker import CircuitBreaker, CircuitOpenError
+from api.interfaces import ITranslationEngine
 from api.load_balancer import LoadBalancer
-from api.api_monitor import APIMonitor
+from api.multi_api_verifier import MultiAPIVerifier
 from api.terminology_service import TerminologyService
+from api.translation_cache import TranslationCache
+from api.translation_strategy import TranslationStrategy
+from api.unified_retry import RetryPolicy, with_retry
+from core.log_manager import get_logger
+from core.utils import resolve_resource_path
 
 try:
-    from api.async_api_client import AsyncAPIClient, AIOHTTP_AVAILABLE
+    from api.async_api_client import AIOHTTP_AVAILABLE, AsyncAPIClient
 except ImportError:
     AIOHTTP_AVAILABLE = False
     AsyncAPIClient = None

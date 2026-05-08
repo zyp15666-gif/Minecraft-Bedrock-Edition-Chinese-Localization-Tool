@@ -11,7 +11,8 @@ UI协调器 - 统一管理UI组件协调和后台任务调度
 """
 
 import threading
-from typing import Dict, Any, Optional, Callable, List
+from typing import Any, Callable, Dict, List, Optional
+
 import flet as ft
 
 from core.log_manager import get_logger

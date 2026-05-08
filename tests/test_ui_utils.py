@@ -4,18 +4,19 @@
 UI 工具函数单元测试
 """
 
-import pytest
 import time
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock
+
 import flet as ft
+import pytest
 
 from ui.utils import (
-    get_theme_color,
-    generate_api_name,
+    ProgressThrottler,
     create_ui_scale,
     format_file_size,
+    generate_api_name,
+    get_theme_color,
     truncate_text,
-    ProgressThrottler
 )
 
 

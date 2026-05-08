@@ -15,13 +15,10 @@
     python scripts/verify_docs.py [--fix]
 """
 
-import os
 import re
 import sys
-import inspect
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional
-
+from typing import List
 
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -71,7 +68,7 @@ class DocVerifier:
 
     def verify_api_methods_exist(self, content: str):
         """检查文档中提到的方法是否在实际代码中存在"""
-        api_dir = self.project_root / "api"
+        self.project_root / "api"
 
         documented_methods = re.findall(r'`(\w+)\s*\([^)]*\)`', content)
         documented_methods = [m for m in documented_methods if not m.startswith('_')]
@@ -138,10 +135,6 @@ class DocVerifier:
 
     def _verify_button_references_in_guide(self, content: str):
         """检查指南中提到的按钮是否在配置中存在"""
-        button_patterns = [
-            r'\[(\d+)\]\s*仅提取',
-            r'\[(\d+)\]\s*提取\+AI翻译',
-        ]
 
         config_manager_path = self.project_root / "config" / "config_manager.py"
         if not config_manager_path.exists():
@@ -154,7 +147,7 @@ class DocVerifier:
         if not default_buttons:
             return
 
-        button_texts = re.findall(r"'label':\s*'([^']+)'", default_buttons.group(1))
+        re.findall(r"'label':\s*'([^']+)'", default_buttons.group(1))
 
     def _verify_script_paths_in_guide(self, content: str):
         """检查指南中的脚本路径是否正确"""
@@ -250,7 +243,7 @@ def main():
     parser = argparse.ArgumentParser(description='验证文档与代码一致性')
     parser.add_argument('--fix', action='store_true', help='自动修复可修复的问题')
     parser.add_argument('--verbose', '-v', action='store_true', help='详细输出')
-    args = parser.parse_args()
+    parser.parse_args()
 
     verifier = DocVerifier(PROJECT_ROOT)
     results = verifier.verify_all()

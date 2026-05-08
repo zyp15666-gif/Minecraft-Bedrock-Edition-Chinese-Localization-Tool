@@ -17,11 +17,8 @@
 
 import json
 import re
-import os
-from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple
-
 
 CATEGORY_PATTERNS = {
     'block': [

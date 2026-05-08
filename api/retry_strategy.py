@@ -19,10 +19,10 @@ API 重试策略模块
         return api_manager.translate_text(text)
 """
 
+import functools
 import random
 import time
-import functools
-from typing import Callable, Type, Tuple, Optional, Any, TypeVar
+from typing import Callable, Optional, Tuple, Type, TypeVar
 
 from core.log_manager import get_logger
 

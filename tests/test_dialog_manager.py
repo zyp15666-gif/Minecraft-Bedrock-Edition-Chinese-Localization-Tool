@@ -4,9 +4,10 @@
 UI对话框管理器测试
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock
+
 import flet as ft
+import pytest
 
 
 class TestDialogManager:

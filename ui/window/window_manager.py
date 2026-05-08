@@ -12,8 +12,9 @@
     window_manager.initialize_window()
 """
 
+from typing import Any, Callable, Dict, Optional, Tuple
+
 import flet as ft
-from typing import Callable, Dict, Any, Tuple, Optional
 
 
 class WindowManager:
@@ -64,7 +65,7 @@ class WindowManager:
             (window_width, window_height, min_window_width, min_window_height)
         """
         primary_monitor = None
-        default_width, default_height = 700, 750
+        _default_width, _default_height = 700, 750
 
         try:
             import screeninfo
@@ -148,7 +149,7 @@ class WindowManager:
 
         if screen_width >= 2560:
             self.button_scale = self.scale * 1.2
-            self.log(f"功能按钮适度放大: 1.2x (2K+模式)")
+            self.log("功能按钮适度放大: 1.2x (2K+模式)")
         else:
             self.button_scale = self.scale
 
@@ -233,7 +234,6 @@ class WindowManager:
         """
         def on_window_resized(e):
             try:
-                current_width = self.page.window.width
                 current_height = self.page.window.height
                 initial_width, initial_height = self.initial_window_size
                 target_h = self.target_height

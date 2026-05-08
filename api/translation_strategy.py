@@ -11,12 +11,11 @@
   - 无颜色符号 → 仅一阶段翻译
 """
 
-import re
-import time
-from typing import Dict, Any, List, Tuple, Optional, Callable
-from core.log_manager import get_logger
-from core.utils import split_by_color_codes, has_color_codes, is_lang_key_format
+from typing import Any, Dict, List, Optional, Tuple
+
 from api.translation_prompts import get_prompt_for_provider
+from core.log_manager import get_logger
+from core.utils import has_color_codes, is_lang_key_format, split_by_color_codes
 
 logger = get_logger(__name__)
 
@@ -36,7 +35,7 @@ class TranslationStrategy:
 
     def preprocess(self, text: str) -> Tuple[str, str, Dict[str, Any]]:
         """预处理待翻译文本
-        
+
         Args:
             text: 原始文本
 
@@ -46,7 +45,7 @@ class TranslationStrategy:
         # 简单清洗：去除首尾空格
         core_text = text.strip()
         suffix = ''
-        
+
         # 如果原文本有尾空格，保留
         if text.endswith(' ') and not core_text.endswith(' '):
             suffix = ' '
@@ -201,6 +200,96 @@ class TranslationStrategy:
 
         return ''.join(codes + trans for codes, trans in translated_segments)
 
+    def _translate_with_color_codes(self, api_config: Dict[str, Any], core_text: str,
+                                    is_test: bool, custom_prompt: Optional[str],
+                                    cache_key: str, suffix: str) -> str:
+        """执行有颜色符号的二阶段分割翻译
+
+        Args:
+            api_config: API配置
+            core_text: 核心文本
+            is_test: 是否测试模式
+            custom_prompt: 自定义提示词
+            cache_key: 缓存键
+            suffix: 后缀
+
+        Returns:
+            翻译结果
+        """
+        logger.info("[流程] 检测到颜色符号，执行二阶段分割翻译")
+
+        try:
+            result = self._translate_stage2(api_config, core_text, is_test, custom_prompt)
+        except Exception as e:
+            logger.warning(f"[翻译策略] 二阶段 API 调用失败: {e}")
+            result = None
+
+        if result and result != core_text:
+            if not is_test and self.cache:
+                self.cache.set(cache_key, result)
+            return result + suffix
+        else:
+            return core_text + suffix
+
+    def _translate_without_color_codes(self, api_config: Dict[str, Any], core_text: str,
+                                       is_test: bool, custom_prompt: Optional[str],
+                                       config: Optional[Dict[str, Any]],
+                                       cache_key: str, suffix: str) -> str:
+        """执行无颜色符号的一阶段直接翻译
+
+        Args:
+            api_config: API配置
+            core_text: 核心文本
+            is_test: 是否测试模式
+            custom_prompt: 自定义提示词
+            config: 额外配置
+            cache_key: 缓存键
+            suffix: 后缀
+
+        Returns:
+            翻译结果
+        """
+        logger.info("[流程] 无颜色符号，执行一阶段直接翻译")
+
+        prompt = custom_prompt
+        if not prompt and api_config.get('type') == 'local_ollama':
+            use_prompt = config.get('basic', {}).get('local_model_use_prompt', True) if config else True
+            if use_prompt:
+                provider_type = api_config.get('type', 'openai')
+                prompt = get_prompt_for_provider(provider_type, 'stage1') + core_text
+
+        try:
+            result = self._translate_stage1(api_config, core_text, is_test, prompt)
+        except Exception as e:
+            logger.warning(f"[翻译策略] 一阶段 API 调用失败: {e}")
+            result = None
+
+        if result and result != core_text:
+            if not is_test and self.cache:
+                self.cache.set(cache_key, result)
+            return result + suffix
+        else:
+            return core_text + suffix
+
+    def _try_term_match(self, text: str, is_test: bool, suffix: str) -> Optional[str]:
+        """尝试术语匹配，命中则返回翻译结果，未命中返回None
+
+        Args:
+            text: 待匹配文本
+            is_test: 是否测试模式
+            suffix: 后缀
+
+        Returns:
+            术语翻译结果或None
+        """
+        term_result = self.check_term_match(text)
+        if term_result:
+            logger.info(f"[术语命中] '{text[:50]}' -> '{term_result[:50]}'")
+            if not is_test and self.cache:
+                self.cache.set(text, term_result)
+            return term_result + suffix
+        return None
+
     def translate(
         self,
         api_config: Dict[str, Any],
@@ -234,68 +323,35 @@ class TranslationStrategy:
 
         # ========== 1. 预处理 ==========
         core_text, suffix, context = self.preprocess(text)
-        original_text = text
 
         # ========== 2. 语言键拦截 ==========
         if is_lang_key_format(core_text):
-            logger.info(f"[术语/语言键] 检测到语言键格式，保留原文")
-            return original_text
+            logger.info("[术语/语言键] 检测到语言键格式，保留原文")
+            return text
 
         # ========== 3. 术语匹配 ==========
-        term_result = self.check_term_match(text)
+        term_result = self._try_term_match(text, is_test, suffix)
         if term_result:
-            logger.info(f"[术语命中] '{text[:50]}' -> '{term_result[:50]}'")
-            if not is_test and self.cache:
-                self.cache.set(text, term_result)
-            return term_result + suffix
+            return term_result
 
-        term_result = self.check_term_match(core_text)
+        term_result = self._try_term_match(core_text, is_test, suffix)
         if term_result:
-            logger.info(f"[术语命中-清洗] '{core_text[:50]}' -> '{term_result[:50]}'")
-            if not is_test and self.cache:
-                self.cache.set(core_text, term_result)
-            return term_result + suffix
+            return term_result
 
         # ========== 4. 缓存检查 ==========
         cache_key = core_text
         if not is_test and self.cache:
             cached = self.cache.get(cache_key)
             if cached:
-                logger.info(f"[缓存命中]")
+                logger.info("[缓存命中]")
                 return cached + suffix
 
         # ========== 5. 核心流程：颜色符号判断 ==========
         has_color = context.get('has_color_codes', has_color_codes(core_text))
 
         if has_color:
-            # ====== 有颜色符号 → 直接二阶段分割翻译 ======
-            logger.info(f"[流程] 检测到颜色符号，执行二阶段分割翻译")
-
-            result = self._translate_stage2(api_config, core_text, is_test, custom_prompt)
-
-            if result and result != core_text:
-                if not is_test and self.cache:
-                    self.cache.set(cache_key, result)
-                return result + suffix
-            else:
-                return core_text + suffix
+            return self._translate_with_color_codes(
+                api_config, core_text, is_test, custom_prompt, cache_key, suffix)
         else:
-            # ====== 无颜色符号 → 仅一阶段翻译 ======
-            logger.info(f"[流程] 无颜色符号，执行一阶段直接翻译")
-
-            # 本地模型：根据模型类型选择提示词
-            prompt = custom_prompt
-            if not prompt and api_config.get('type') == 'local_ollama':
-                use_prompt = config.get('basic', {}).get('local_model_use_prompt', True) if config else True
-                if use_prompt:
-                    provider_type = api_config.get('type', 'openai')
-                    prompt = get_prompt_for_provider(provider_type, 'stage1') + core_text
-
-            result = self._translate_stage1(api_config, core_text, is_test, prompt)
-
-            if result and result != core_text:
-                if not is_test and self.cache:
-                    self.cache.set(cache_key, result)
-                return result + suffix
-            else:
-                return core_text + suffix
+            return self._translate_without_color_codes(
+                api_config, core_text, is_test, custom_prompt, config, cache_key, suffix)

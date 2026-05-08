@@ -6,16 +6,15 @@
 从临时脚本 translate_en_us.py 重构而来，提供标准化的翻译管道接口
 """
 
-from config.config_manager import ConfigManager
+import os
+import time
+from typing import Any, Callable, Dict, Optional, Tuple
+
+from api.api_manager import APIManager
 from core.application_service import ApplicationService
 from core.container import build_app_container
 from core.file_handler import FileHandler
 from core.translator import Translator
-from api.api_manager import APIManager
-import os
-import sys
-import time
-from typing import Dict, Any, Optional, Callable, Tuple
 
 
 class TranslationPipeline:
@@ -85,30 +84,15 @@ class TranslationPipeline:
             float, int, float], None]] = None,
         log_callback: Optional[Callable[[str], None]] = None
     ) -> bool:
-        """
-        翻译.lang文件并保存到指定输出文件
-
-        Args:
-            input_file: 输入文件路径
-            output_file: 输出文件路径
-            progress_callback: 进度回调函数 (百分比, 剩余条数, 剩余时间)
-            log_callback: 日志回调函数
-
-        Returns:
-            是否翻译成功
-        """
         if not self.initialized:
             if not self.initialize():
                 return False
 
         try:
-            if not os.path.exists(input_file):
-                if log_callback:
-                    log_callback(f"❌ 输入文件不存在: {input_file}")
+            if not self._validate_input(input_file, log_callback):
                 return False
 
             entries = self.file_handler.parse_lang_file(input_file)
-
             if not entries:
                 if log_callback:
                     log_callback("❌ 未从文件中提取到任何条目")
@@ -116,19 +100,16 @@ class TranslationPipeline:
 
             if log_callback:
                 log_callback(f"📊 解析到 {len(entries)} 个条目")
-
-            if log_callback:
                 log_callback("🌐 开始翻译...")
 
             start_time = time.time()
-
             translated = self.translator.translate_entries(
                 entries,
                 progress_callback=progress_callback,
                 log_callback=log_callback
             )
-
             elapsed = time.time() - start_time
+
             if log_callback:
                 log_callback(f"⏱️  翻译完成，耗时: {elapsed:.2f} 秒")
 
@@ -137,39 +118,9 @@ class TranslationPipeline:
                     log_callback("❌ 翻译失败，未生成翻译结果")
                 return False
 
-            if log_callback:
-                log_callback(f"💾 写入输出文件: {output_file}")
-
-            output_dir = os.path.dirname(output_file)
-            if output_dir and not os.path.exists(output_dir):
-                os.makedirs(output_dir, exist_ok=True)
-
-            with open(output_file, 'w', encoding='utf-8', newline='\n') as f:
-                with open(input_file, 'r', encoding='utf-8') as inf:
-                    for line in inf:
-                        line_stripped = line.strip()
-                        if not line_stripped or line_stripped.startswith('#'):
-                            f.write(line)
-                        elif '=' in line_stripped:
-                            break
-                        else:
-                            f.write(line)
-
-                for key, value in entries.items():
-                    translated_value = translated.get(
-                        key, value)
-                    translated_value = translated_value.replace('\n', '\\n')
-                    f.write(f"{key}={translated_value}\n")
-
-            success_count = len(
-                [key for key in entries if translated.get(key, '') != entries[key]])
-
-            if log_callback:
-                log_callback(f"✅ 翻译完成！输出文件: {output_file}")
-                log_callback(
-                    f"📊 统计: 总共 {len(entries)} 条, 成功翻译 {success_count} 条")
-
-            return True
+            return self._write_translated_file(
+                input_file, output_file, entries, translated, log_callback
+            )
 
         except Exception as e:
             if log_callback:
@@ -177,6 +128,45 @@ class TranslationPipeline:
             import traceback
             traceback.print_exc()
             return False
+
+    def _validate_input(self, input_file: str, log_callback) -> bool:
+        if not os.path.exists(input_file):
+            if log_callback:
+                log_callback(f"❌ 输入文件不存在: {input_file}")
+            return False
+        return True
+
+    def _write_translated_file(self, input_file, output_file, entries, translated, log_callback) -> bool:
+        if log_callback:
+            log_callback(f"💾 写入输出文件: {output_file}")
+
+        output_dir = os.path.dirname(output_file)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        with open(output_file, 'w', encoding='utf-8', newline='\n') as f:
+            with open(input_file, 'r', encoding='utf-8') as inf:
+                for line in inf:
+                    line_stripped = line.strip()
+                    if not line_stripped or line_stripped.startswith('#'):
+                        f.write(line)
+                    elif '=' in line_stripped:
+                        break
+                    else:
+                        f.write(line)
+
+            for key, value in entries.items():
+                translated_value = translated.get(key, value)
+                translated_value = translated_value.replace('\n', '\\n')
+                f.write(f"{key}={translated_value}\n")
+
+        success_count = len([key for key in entries if translated.get(key, '') != entries[key]])
+
+        if log_callback:
+            log_callback(f"✅ 翻译完成！输出文件: {output_file}")
+            log_callback(f"📊 统计: 总共 {len(entries)} 条, 成功翻译 {success_count} 条")
+
+        return True
 
     def batch_translate_files(
         self,

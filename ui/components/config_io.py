@@ -12,11 +12,11 @@
     dialog = config_io.create_export_dialog()
 """
 
-import flet as ft
 import json
-import os
-from typing import Dict, Any, Callable, Optional
 from datetime import datetime
+from typing import Any, Callable, Dict
+
+import flet as ft
 
 
 class ConfigIO:
